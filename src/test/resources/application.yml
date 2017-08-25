@@ -1,0 +1,3 @@
+server:
+  context-path: /netty
+  port: 9999

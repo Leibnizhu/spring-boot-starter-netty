@@ -1,0 +1,9 @@
+${AnsiColor.BRIGHT_YELLOW}
+.____            .__ ___.            .__             ___ ___
+|    |     ____  |__|\_ |__    ____  |__|________   /   |   \  __ __
+|    |   _/ __ \ |  | | __ \  /    \ |  |\___   /  /    ~    \|  |  \
+|    |___\  ___/ |  | | \_\ \|   |  \|  | /    /   \    Y    /|  |  /
+|_______ \\___  >|__| |___  /|___|  /|__|/_____ \ /\\___|_  / |____/
+        \/    \/          \/      \/           \/ \/      \/
+${AnsiColor.BLUE}
+    ::: Using Embedded Netty Servlet Container (version:${application.version})  :::      ＼(^O^)／      Spring-Boot ${spring-boot.version}
