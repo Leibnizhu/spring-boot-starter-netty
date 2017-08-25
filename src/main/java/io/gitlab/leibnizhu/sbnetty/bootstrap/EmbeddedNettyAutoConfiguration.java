@@ -1,14 +1,15 @@
 package io.gitlab.leibnizhu.sbnetty.bootstrap;
 
 import io.netty.bootstrap.Bootstrap;
+import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.autoconfigure.condition.SearchStrategy;
 import org.springframework.boot.context.embedded.EmbeddedServletContainerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 
 /**
  * 配置加载内置Netty容器的工厂类Bean。
@@ -18,13 +19,15 @@ import org.springframework.core.annotation.Order;
  *
  * @author Leibniz 2017-08-24
  */
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)
 @Configuration
+@ConditionalOnWebApplication // 在Web环境下才会起作用
 public class EmbeddedNettyAutoConfiguration {
     @Configuration
-    @ConditionalOnClass({Bootstrap.class})
-    @ConditionalOnMissingBean(value = EmbeddedServletContainerFactory.class, search = SearchStrategy.CURRENT)
+    @ConditionalOnClass({Bootstrap.class}) // Netty的Bootstrap类必须在classloader中存在，才能启动Netty容器
+    @ConditionalOnMissingBean(value = EmbeddedServletContainerFactory.class, search = SearchStrategy.CURRENT) //当前Spring容器中不存在EmbeddedServletContainerFactory接口的实例
     public static class EmbeddedNetty {
+        //上述条件注解成立的话就会构造EmbeddedNettyFactory这个EmbeddedServletContainerFactory
         @Bean
         public EmbeddedNettyFactory embeddedNettyFactory() {
             return new EmbeddedNettyFactory();
