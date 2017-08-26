@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.servlet.Servlet;
 import java.io.IOException;
-import java.util.Map;
 
 /**
  * 保存，计算URL-pattern与请求路径的匹配关系
@@ -16,12 +15,10 @@ import java.util.Map;
 public class RequestUrlPatternMapper {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    private Map<String, String> servletMappings;
     private ContextVersion contextVersion;
     private String contextPath;
 
-    public RequestUrlPatternMapper(Map<String, String> servletMappings, String contextPath) {
-        this.servletMappings = servletMappings;
+    public RequestUrlPatternMapper(String contextPath) {
         this.contextVersion = new ContextVersion("1.0", 0, new String[0]);
         this.contextPath = contextPath;
     }
@@ -303,7 +300,11 @@ public class RequestUrlPatternMapper {
         }
     }
 
-    class ContextVersion extends MapElement<Object> {
+    /*
+     * 以下是用到的内部类
+     */
+
+    private class ContextVersion extends MapElement<Object> {
         final int slashCount;
         String[] welcomeResources;
         MappedWrapper defaultWrapper = null;
@@ -318,6 +319,28 @@ public class RequestUrlPatternMapper {
             this.welcomeResources = welcomeResources;
         }
     }
+
+    private class MappedWrapper extends MapElement<Servlet> {
+        String servletName;
+        MappedWrapper(String name, Servlet servlet, String servletName) {
+            super(name, servlet);
+            this.servletName = servletName;
+        }
+    }
+
+    private class MapElement<T> {
+        final String name;
+        final T object;
+
+        MapElement(String name, T object) {
+            this.name = name;
+            this.object = object;
+        }
+    }
+
+    /*
+     * 以下是匹配用到的一些私有方法
+     */
 
     private static <T> boolean insertMap(MapElement<T>[] oldMap, MapElement<T>[] newMap, MapElement<T> newElement) {
         int pos = find(oldMap, newElement.name);
@@ -463,23 +486,5 @@ public class RequestUrlPatternMapper {
             }
         }
         return (pos);
-    }
-
-    private class MappedWrapper extends MapElement<Servlet> {
-        String servletName;
-        MappedWrapper(String name, Servlet servlet, String servletName) {
-            super(name, servlet);
-            this.servletName = servletName;
-        }
-    }
-
-    class MapElement<T> {
-        final String name;
-        final T object;
-
-        MapElement(String name, T object) {
-            this.name = name;
-            this.object = object;
-        }
     }
 }
