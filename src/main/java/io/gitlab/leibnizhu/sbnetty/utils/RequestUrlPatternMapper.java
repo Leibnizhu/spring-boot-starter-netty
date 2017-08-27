@@ -33,7 +33,7 @@ public class RequestUrlPatternMapper {
      * @param servletName servletName
      * @author Leibniz
      */
-    public void addWrapper(String urlPattern, Servlet servlet, String servletName) throws ServletException {
+    public void addServlet(String urlPattern, Servlet servlet, String servletName) throws ServletException {
         if (urlPattern.endsWith("/*")) {
             // 路径匹配
             String pattern = urlPattern.substring(0, urlPattern.length() - 1);

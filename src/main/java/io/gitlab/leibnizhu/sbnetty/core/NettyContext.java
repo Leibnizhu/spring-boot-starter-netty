@@ -67,10 +67,10 @@ public class NettyContext implements ServletContext {
         checkState(!isInitialised(), "This method can not be called before the context has been initialised");
     }
 
-    public void addServletMapping(String urlPattern, String name, Servlet servlet) {
+    public void addServletMapping(String urlPattern, String name, Servlet servlet) throws ServletException {
         checkNotInitialised();
         servletMappings.put(urlPattern, checkNotNull(name));
-        servletUrlPatternMapper.addWrapper(urlPattern, servlet, name);
+        servletUrlPatternMapper.addServlet(urlPattern, servlet, name);
     }
 
     public void addFilterMapping(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String urlPattern) {

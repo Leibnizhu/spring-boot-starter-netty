@@ -13,35 +13,60 @@ import javax.servlet.ServletException;
  */
 public class RequestUtlPatternMapperTest {
     private RequestUrlPatternMapper mapper = new RequestUrlPatternMapper("/netty");
+    private String[] cases = new String[]{
+            "/netty/",
+            "/netty/aaa",
+            "/netty/jsonaa/a/dfd/json",
+            "/netty/json/",
+            "/netty/json/bggg",
+            "/netty/json/a/dfd/json",
+            "/netty/json/b/dfd/json",
+            "/netty/json/a/b/dfd/json",
+            "/netty/json/b/a/dfd/json"
+    };
+    private double[] times = new double[cases.length];
+    private int totalCount = 100000;
 
     @Test
     public void testAll() throws ServletException {
         addPattern();
-        testMatchs();
+
+        for (int i = 0; i < totalCount; i++) {
+            testMatchs();
+        }
+        testMatchs(true);
     }
 
     private void testMatchs() {
-        testCase("/netty/json/a/dfd/json");
-        testCase("/netty/json/b/dfd/json");
-        testCase("/netty/json/a/b/dfd/json");
-        testCase("/netty/json/b/a/dfd/json");
-        testCase("/netty/json/");
-        testCase("/netty/json/bggg");
-        testCase("/netty/aaa");
-        testCase("/netty/");
+        testMatchs(false);
     }
 
-    private void testCase(String s) {
-        System.out.println(s + " : " + mapper.getServletNameByRequestURI(s));
+    private void testMatchs(boolean showLog) {
+        for(int i = 0; i< cases.length; i++){
+            testCase(cases[i], i, showLog);
+        }
+    }
+
+    private void testCase(String s, int order) {
+        testCase(s, order, false);
+    }
+
+    private void testCase(String s, int order, boolean showLog) {
+        long t1 = System.nanoTime();
+        String result = mapper.getServletNameByRequestURI(s);
+        times[order] = times[order] + (System.nanoTime() - t1);
+        if (showLog) {
+            System.out.println(s + " : " + result + ". Average cost time(ns): " + times[order] / totalCount + " ns");
+        }
     }
 
     private void addPattern() throws ServletException {
         Servlet obj = new DispatcherServlet();
-        mapper.addWrapper("/json/a/*", obj, "a");
-        mapper.addWrapper("/json/a/b/*", obj, "ab");
-        mapper.addWrapper("/json/b/*", obj, "b");
-        mapper.addWrapper("/json/*", obj, "jsonsall");
-        mapper.addWrapper("/json/", obj, "jsonroot");
-        mapper.addWrapper("/", obj, "root");
+        mapper.addServlet("/json/a/*", obj, "a");
+        mapper.addServlet("/json/a/b/*", obj, "ab");
+        mapper.addServlet("/json/b/*", obj, "b");
+        mapper.addServlet("/json/*", obj, "jsonsall");
+        mapper.addServlet("/json/", obj, "jsonroot");
+        mapper.addServlet("/", obj, "root");
     }
 }
