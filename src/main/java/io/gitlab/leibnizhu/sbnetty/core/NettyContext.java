@@ -1,7 +1,6 @@
 package io.gitlab.leibnizhu.sbnetty.core;
 
 import com.google.common.collect.ImmutableMap;
-import io.gitlab.leibnizhu.sbnetty.SimpleFilterChain;
 import io.gitlab.leibnizhu.sbnetty.registration.NettyFilterRegistration;
 import io.gitlab.leibnizhu.sbnetty.registration.NettyServletRegistration;
 import io.gitlab.leibnizhu.sbnetty.utils.MimeTypeUtil;
@@ -185,7 +184,7 @@ public class NettyContext implements ServletContext {
             for (NettyFilterRegistration registration : this.filters.values()) {
                 allNeedFilters.add(registration.getFilter());
             }
-            FilterChain filterChain = new SimpleFilterChain(servlet, allNeedFilters);
+            FilterChain filterChain = new NettyFilterChain(servlet, allNeedFilters);
             return new NettyRequestDispatcher(this, filterChain);
         } catch (ServletException e) {
             log.error("Throwing exception when getting Filter from NettyFilterRegistration of path " + path, e);
