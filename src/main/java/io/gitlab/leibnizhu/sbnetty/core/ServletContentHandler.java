@@ -38,7 +38,7 @@ public class ServletContentHandler extends ChannelInboundHandlerAdapter {
             }
             ctx.fireChannelRead(servletRequest);
         }
-        if (msg instanceof HttpContent) {
+        if (msg instanceof HttpContent) { //EmptyLastHttpContent, DefaultLastHttpContent
             inputStream.addContent((HttpContent) msg);
         }
     }
