@@ -93,6 +93,7 @@ public class NettyContainer implements EmbeddedServletContainer {
      */
     @Override
     public void stop() throws EmbeddedServletContainerException {
+        log.info("Embedded Netty Servlet Container(by Leibniz.Hu) is now shuting down.");
         try {
             if (null != bossGroup) {
                 bossGroup.shutdownGracefully().await();
