@@ -3,6 +3,7 @@ package io.gitlab.leibnizhu.sbnetty.core;
 import com.google.common.collect.ImmutableMap;
 import io.gitlab.leibnizhu.sbnetty.registration.NettyFilterRegistration;
 import io.gitlab.leibnizhu.sbnetty.registration.NettyServletRegistration;
+import io.gitlab.leibnizhu.sbnetty.session.NettySessionManager;
 import io.gitlab.leibnizhu.sbnetty.utils.MimeTypeUtil;
 import io.gitlab.leibnizhu.sbnetty.utils.RequestUrlPatternMapper;
 import org.slf4j.Logger;
@@ -31,6 +32,7 @@ public class NettyContext implements ServletContext {
     private final String serverInfo;
     private volatile boolean initialized; //记录是否初始化完毕
     private RequestUrlPatternMapper servletUrlPatternMapper;
+    private NettySessionManager sessionManager;
 
     private final Map<String, NettyServletRegistration> servlets = new HashMap<>(); //getServletRegistration()等方法要用，key是ServletName
     private final Map<String, NettyFilterRegistration> filters = new HashMap<>(); //getFilterRegistration()等方法要用，Key是FilterName
@@ -51,7 +53,12 @@ public class NettyContext implements ServletContext {
         this.contextPath = contextPath;
         this.classLoader = classLoader;
         this.serverInfo = serverInfo;
-        servletUrlPatternMapper = new RequestUrlPatternMapper(contextPath);
+        this.servletUrlPatternMapper = new RequestUrlPatternMapper(contextPath);
+        this.sessionManager = new NettySessionManager(this);
+    }
+
+    public NettySessionManager getSessionManager() {
+        return sessionManager;
     }
 
     void setInitialised(boolean initialized) {

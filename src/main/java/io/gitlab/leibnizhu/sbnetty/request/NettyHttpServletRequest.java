@@ -4,6 +4,7 @@ import com.google.common.primitives.Ints;
 import io.gitlab.leibnizhu.sbnetty.core.NettyAsyncContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyRequestDispatcher;
+import io.gitlab.leibnizhu.sbnetty.session.NettyHttpSession;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
@@ -56,6 +57,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         }
         this.servletPath = servletPath;
         this.requestUri = this.servletContext.getContextPath() + servletPath; //TODO 加上pathInfo
+        parseSession();
     }
 
     @SuppressWarnings("unused")
@@ -66,11 +68,11 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     /*====== Cookie 相关方法 开始 ======*/
     private Cookie[] cookies;
-    private transient boolean cookieParsed = false;
+    private transient boolean isCookieParsed = false;
 
     @Override
     public Cookie[] getCookies() {
-        if (!cookieParsed) {
+        if (!isCookieParsed) {
             parseCookie();
         }
         return cookies;
@@ -82,7 +84,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
      * @author Leibniz
      */
     private void parseCookie() {
-        if (cookieParsed) {
+        if (isCookieParsed) {
             return;
         }
 
@@ -103,7 +105,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             this.cookies[i++] = servletCookie;
         }
 
-        this.cookieParsed = true;
+        this.isCookieParsed = true;
     }
 
     /*====== Cookie 相关方法 结束 ======*/
@@ -197,35 +199,124 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
 
     /*====== Session 相关方法 开始 ======*/
-    //TODO Session处理
+    private HttpSession session;
+    private boolean isCookieSession;
+    private boolean isURLSession;
+
+    /**
+     * 先后看请求路径和Cookie中是否有sessionid
+     * 有，则从SessionManager获取session对象放入session属性
+     * 如果session对象过期，则创建一个新的并放入
+     * 无，则创建一个新Session并放入
+     */
+    private void parseSession() {
+        checkSessionIdFromCookie();
+    }
+
+    private void checkSessionIdFromCookie() {
+        String sessionId;
+        HttpSession curSession;
+
+        //从Cookie解析SessionID
+        sessionId = getSessionIdFromCookie();
+        if(sessionId != null){
+            curSession = servletContext.getSessionManager().getSession(sessionId);
+            if (null != curSession) {
+                this.isCookieSession = true;
+                recoverySession(curSession);
+                return;
+            }
+        }
+
+        if (!this.isCookieSession) {
+            // 从请求路径解析SessionID
+            sessionId = getSessionIdFromUrl();
+            curSession = servletContext.getSessionManager().getSession(sessionId);
+            if(null != curSession){
+                this.isURLSession = true;
+                recoverySession(curSession);
+                return;
+            }
+        }
+        //Cookie和请求参数中都没拿到Session，则创建一个
+        if (this.session == null) {
+            this.session = createtSession();
+        }
+    }
+
+    private String getSessionIdFromUrl() {
+        StringBuilder u = new StringBuilder(request.uri());
+        int sessionStart;
+        while ((sessionStart = u.toString().indexOf(";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=")) != -1) {
+            int sessionEnd = u.toString().indexOf(';', sessionStart + 1);
+            if (sessionEnd == -1)
+                sessionEnd = u.toString().indexOf('?', sessionStart + 1);
+            if (sessionEnd == -1) // still
+                sessionEnd = u.length();
+            u.delete(sessionStart, sessionEnd);
+        }
+        return u.toString();
+    }
+
+    private String getSessionIdFromCookie() {
+        for (Cookie cookie : cookies) {
+            if (cookie.getName().equals(NettyHttpSession.SESSION_COOKIE_NAME)) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private void recoverySession(HttpSession curSession) {
+        this.session = curSession;
+        servletContext.getSessionManager().setOldSession(this.session);
+    }
+
     @Override
     public HttpSession getSession(boolean create) {
-        return null;
+        boolean valid = isRequestedSessionIdValid();
+        //可用则直接返回
+        if (valid) {
+            return session;
+        }
+        //不可用则判断是否新建
+        if (!create) {
+            session = null;
+            return null;
+        }
+        //不可用且允许新建则新建之
+        this.session = createtSession();
+        return this.session;
     }
 
     @Override
     public HttpSession getSession() {
-        return null;
+        return getSession(true);
     }
 
     @Override
     public String changeSessionId() {
-        return null;
+        this.session = createtSession();
+        return this.session.getId();
+    }
+
+    private HttpSession createtSession() {
+        return servletContext.getSessionManager().createSession();
     }
 
     @Override
     public boolean isRequestedSessionIdValid() {
-        return false;
+        return servletContext.getSessionManager().checkValid(session);
     }
 
     @Override
     public boolean isRequestedSessionIdFromCookie() {
-        return false;
+        return isCookieSession;
     }
 
     @Override
     public boolean isRequestedSessionIdFromURL() {
-        return false;
+        return isURLSession;
     }
 
     @Override
@@ -236,7 +327,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     @Override
     public String getRequestedSessionId() {
-        return null;
+        return session.getId();
     }
     /*====== Session 相关方法 结束 ======*/
 
@@ -500,9 +591,10 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     }
 
     private String characterEncoding;
+
     @Override
     public String getCharacterEncoding() {
-        if(characterEncoding == null) {
+        if (characterEncoding == null) {
             characterEncoding = parseCharacterEncoding();
         }
         return characterEncoding;
@@ -520,7 +612,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     private static final String DEFAULT_CHARSET = "UTF-8";
 
-    private String parseCharacterEncoding(){
+    private String parseCharacterEncoding() {
         String contentType = getContentType();
         if (contentType == null) {
             return DEFAULT_CHARSET;
