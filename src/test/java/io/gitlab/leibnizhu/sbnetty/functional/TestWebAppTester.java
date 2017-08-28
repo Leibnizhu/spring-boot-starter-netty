@@ -1,4 +1,4 @@
-package io.gitlab.leibnizhu.sbnetty;
+package io.gitlab.leibnizhu.sbnetty.functional;
 
 import io.gitlab.leibnizhu.sbnetty.bootstrap.EmbeddedNettyAutoConfiguration;
 import org.junit.Before;

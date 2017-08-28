@@ -1,4 +1,4 @@
-package io.gitlab.leibnizhu.sbnetty;
+package io.gitlab.leibnizhu.sbnetty.functional;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -9,6 +9,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
@@ -24,7 +25,7 @@ import java.util.concurrent.Callable;
  */
 @Controller
 @EnableAutoConfiguration(exclude = WebMvcAutoConfiguration.class)
-@ComponentScan
+@ComponentScan(basePackages = {"io.gitlab.leibnizhu.sbnetty"})
 @EnableWebMvc
 public class TestWebApp {
     private static final String MESSAGE = "Hello, World!这是一条测试语句";
@@ -43,8 +44,8 @@ public class TestWebApp {
 
     @RequestMapping(value = "/json", produces = "application/json")
     @ResponseBody
-    public Message json() {
-        return new Message(MESSAGE);
+    public Message json(@RequestParam String msg) {
+        return new Message(MESSAGE + ". msg="+ msg);
     }
 
     @RequestMapping(value = "/upload", method = RequestMethod.POST)
