@@ -83,7 +83,7 @@ public class RequestUrlPatternMapper {
      *
      * @param urlPattern
      */
-    public void removeWrapper(String urlPattern) {
+    public void removeServlet(String urlPattern) {
         if (urlPattern.endsWith("/*")) {
             //路径匹配
             String pattern = urlPattern.substring(0, urlPattern.length() - 2);
@@ -129,6 +129,11 @@ public class RequestUrlPatternMapper {
             return;
         }
         String path = noServletPath ? "/" : absolutePath.substring(contextPath.length());
+        //去掉查询字符串
+        int queryInx = path.indexOf('?');
+        if(queryInx > -1){
+            path = path.substring(0, queryInx);
+        }
 
         // 优先进行精确匹配
         internalMapExactWrapper(urlPatternContext.exactServlets, path, mappingData);
