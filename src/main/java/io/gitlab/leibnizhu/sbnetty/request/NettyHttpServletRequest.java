@@ -199,7 +199,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
 
     /*====== Session 相关方法 开始 ======*/
-    private HttpSession session;
+    private NettyHttpSession session;
     private boolean isCookieSession;
     private boolean isURLSession;
 
@@ -215,7 +215,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     private void checkSessionIdFromCookie() {
         String sessionId;
-        HttpSession curSession;
+        NettyHttpSession curSession;
 
         //从Cookie解析SessionID
         sessionId = getSessionIdFromCookie();
@@ -267,7 +267,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         return null;
     }
 
-    private void recoverySession(HttpSession curSession) {
+    private void recoverySession(NettyHttpSession curSession) {
         this.session = curSession;
         servletContext.getSessionManager().setOldSession(this.session);
     }
@@ -277,7 +277,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         boolean valid = isRequestedSessionIdValid();
         //可用则直接返回
         if (valid) {
-            return session;
+            return session.getSession();
         }
         //不可用则判断是否新建
         if (!create) {
@@ -286,7 +286,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         }
         //不可用且允许新建则新建之
         this.session = createtSession();
-        return this.session;
+        return this.session.getSession();
     }
 
     @Override
@@ -300,7 +300,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         return this.session.getId();
     }
 
-    private HttpSession createtSession() {
+    private NettyHttpSession createtSession() {
         return servletContext.getSessionManager().createSession();
     }
 

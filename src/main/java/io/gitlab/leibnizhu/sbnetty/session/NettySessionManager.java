@@ -41,11 +41,11 @@ public class NettySessionManager {
         return session != null && session instanceof NettyHttpSession && sessions.get(session.getId()) != null;
     }
 
-    public HttpSession getSession(String id){
+    public NettyHttpSession getSession(String id){
         return id == null ? null : sessions.get(id);
     }
 
-    public HttpSession createSession(){
+    public NettyHttpSession createSession(){
         String id = createUniqueSessionId();
         NettyHttpSession newSession = new NettyHttpSession(id, this);
         sessions.put(id ,newSession);

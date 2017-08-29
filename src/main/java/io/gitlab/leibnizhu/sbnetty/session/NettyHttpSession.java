@@ -29,6 +29,13 @@ public class NettyHttpSession implements HttpSession, Serializable {
         this.lastAccessedTime = curTime;
         this.id = id;
         this.manager = manager;
+        this.sessionFacade = new NettyHttpSessionFacade(this);
+    }
+
+    private HttpSession sessionFacade;
+
+    public HttpSession getSession(){
+        return sessionFacade;
     }
 
     @Override
