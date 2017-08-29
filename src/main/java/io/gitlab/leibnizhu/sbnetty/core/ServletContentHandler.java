@@ -33,6 +33,7 @@ public class ServletContentHandler extends ChannelInboundHandlerAdapter {
             HttpUtil.setKeepAlive(response, HttpUtil.isKeepAlive(request));
             NettyHttpServletResponse servletResponse = new NettyHttpServletResponse(ctx, servletContext, response);
             NettyHttpServletRequest servletRequest = new NettyHttpServletRequest(ctx, servletContext, request, servletResponse, inputStream);
+            servletResponse.setRequest(servletRequest);
             if (HttpUtil.is100ContinueExpected(request)) { //请求头包含Expect: 100-continue
                 ctx.write(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE), ctx.voidPromise());
             }
