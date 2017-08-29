@@ -1,6 +1,5 @@
 package io.gitlab.leibnizhu.sbnetty.request;
 
-import com.google.common.primitives.Ints;
 import io.gitlab.leibnizhu.sbnetty.core.NettyAsyncContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyRequestDispatcher;
@@ -57,6 +56,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         }
         this.servletPath = servletPath;
         this.requestUri = this.servletContext.getContextPath() + servletPath; //TODO 加上pathInfo
+        parseCookie();
         parseSession();
     }
 
@@ -98,9 +98,9 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         while (itr.hasNext()) {
             io.netty.handler.codec.http.cookie.Cookie nettyCookie = itr.next();
             Cookie servletCookie = new Cookie(nettyCookie.name(), nettyCookie.value());
-            servletCookie.setMaxAge(Ints.checkedCast(nettyCookie.maxAge()));
-            servletCookie.setDomain(nettyCookie.domain());
-            servletCookie.setPath(nettyCookie.path());
+//            servletCookie.setMaxAge(Ints.checkedCast(nettyCookie.maxAge()));
+            if(nettyCookie.domain() != null) servletCookie.setDomain(nettyCookie.domain());
+            if(nettyCookie.path() != null) servletCookie.setPath(nettyCookie.path());
             servletCookie.setHttpOnly(nettyCookie.isHttpOnly());
             this.cookies[i++] = servletCookie;
         }
@@ -210,10 +210,6 @@ public class NettyHttpServletRequest implements HttpServletRequest {
      * 无，则创建一个新Session并放入
      */
     private void parseSession() {
-        checkSessionIdFromCookie();
-    }
-
-    private void checkSessionIdFromCookie() {
         String sessionId;
         NettyHttpSession curSession;
 
@@ -259,6 +255,9 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     }
 
     private String getSessionIdFromCookie() {
+        if(cookies == null){
+            return null;
+        }
         for (Cookie cookie : cookies) {
             if (cookie.getName().equals(NettyHttpSession.SESSION_COOKIE_NAME)) {
                 return cookie.getValue();
