@@ -132,27 +132,30 @@ public class NettyHttpServletResponse implements HttpServletResponse {
         return response.headers().contains(name);
     }
 
-    //TODO 还没想明白怎么在服务器判断客户端是否支持Cookie，所以先不写了
     @Override
     public String encodeURL(String url) {
-        return null;
+        if(!request.isRequestedSessionIdFromCookie()){
+            //来自Cookie的Session ID,则客户端肯定支持Cookie，无需重写URL
+            return url;
+        }
+        return url + ";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=" + request.getRequestedSessionId();
     }
 
     @Override
     public String encodeRedirectURL(String url) {
-        return null;
+        return encodeURL(url);
     }
 
     @Override
     @Deprecated
     public String encodeUrl(String url) {
-        return null;
+        return encodeURL(url);
     }
 
     @Override
     @Deprecated
     public String encodeRedirectUrl(String url) {
-        return null;
+        return encodeRedirectURL(url);
     }
 
     @Override

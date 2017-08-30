@@ -88,7 +88,11 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             return;
         }
 
-        Set<io.netty.handler.codec.http.cookie.Cookie> nettyCookies = ServerCookieDecoder.LAX.decode(this.headers.get("Cookie"));
+        String cookieOriginStr = this.headers.get("Cookie");
+        if (cookieOriginStr == null) {
+            return;
+        }
+        Set<io.netty.handler.codec.http.cookie.Cookie> nettyCookies = ServerCookieDecoder.LAX.decode(cookieOriginStr);
         if (nettyCookies.size() == 0) {
             return;
         }
@@ -242,16 +246,16 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     private String getSessionIdFromUrl() {
         StringBuilder u = new StringBuilder(request.uri());
-        int sessionStart;
-        while ((sessionStart = u.toString().indexOf(";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=")) != -1) {
-            int sessionEnd = u.toString().indexOf(';', sessionStart + 1);
-            if (sessionEnd == -1)
-                sessionEnd = u.toString().indexOf('?', sessionStart + 1);
-            if (sessionEnd == -1) // still
-                sessionEnd = u.length();
-            u.delete(sessionStart, sessionEnd);
+        int sessionStart = u.toString().indexOf(";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=");
+        if(sessionStart == -1) {
+            return null;
         }
-        return u.toString();
+        int sessionEnd = u.toString().indexOf(';', sessionStart + 1);
+        if (sessionEnd == -1)
+            sessionEnd = u.toString().indexOf('?', sessionStart + 1);
+        if (sessionEnd == -1) // still
+            sessionEnd = u.length();
+        return u.substring(sessionStart + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME.length() + 2, sessionEnd);
     }
 
     private String getSessionIdFromCookie() {

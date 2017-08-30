@@ -1,5 +1,7 @@
 package io.gitlab.leibnizhu.sbnetty.functional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration;
@@ -18,6 +20,7 @@ import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
@@ -28,6 +31,8 @@ import java.util.concurrent.Callable;
 @ComponentScan(basePackages = {"io.gitlab.leibnizhu.sbnetty"})
 @EnableWebMvc
 public class TestWebApp {
+    private Logger log = LoggerFactory.getLogger(getClass());
+
     private static final String MESSAGE = "Hello, World!这是一条测试语句";
 
     @RequestMapping(value = "/plaintext", produces = "text/plain")
@@ -45,6 +50,19 @@ public class TestWebApp {
     @RequestMapping(value = "/json", produces = "application/json")
     @ResponseBody
     public Message json(@RequestParam String msg) {
+        return new Message(MESSAGE + ". msg="+ msg);
+    }
+
+    @RequestMapping(value = "/session", produces = "application/json")
+    @ResponseBody
+    public Message session(@RequestParam String msg, HttpSession session, HttpServletRequest req) {
+        if(session.getAttribute("aaa") == null){
+            session.setAttribute("aaa", msg);
+            log.info("sessionId={}, setAttribute aaa={}", session.getId(), msg);
+        } else {
+            String oldMsg = (String) session.getAttribute("aaa");
+            log.info("sessionId={} is old Session, aaa={}, from Cookie:{}, from URL:{}, valid:{}", session.getId(), oldMsg, req.isRequestedSessionIdFromCookie(), req.isRequestedSessionIdFromURL(), req.isRequestedSessionIdValid());
+        }
         return new Message(MESSAGE + ". msg="+ msg);
     }
 
