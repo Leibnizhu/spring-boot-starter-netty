@@ -109,6 +109,17 @@ public class TestWebApp extends WebMvcConfigurerAdapter {
         SpringApplication.run(TestWebApp.class, args);
     }
 
+/*    @Bean
+    public HttpMessageConverter<String> getConverter(){
+        StringHttpMessageConverter conv = new StringHttpMessageConverter(Charset.forName("UTF-8"));
+        conv.setWriteAcceptCharset(false);
+//        List<MediaType> types = new ArrayList<>();
+//        types.add(MediaType.TEXT_HTML);
+//        types.add(MediaType.TEXT_PLAIN);
+//        conv.setSupportedMediaTypes(types);
+        return conv;
+    }*/
+
 /*
     @Override
     public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
