@@ -57,10 +57,6 @@ public class NettyHttpSession implements HttpSession, Serializable {
         return lastAccessedTime;
     }
 
-    public void setLastAccessedTime(long time){
-        this.lastAccessedTime = time;
-    }
-
     @Override
     public ServletContext getServletContext() {
         return manager.getServletContext();

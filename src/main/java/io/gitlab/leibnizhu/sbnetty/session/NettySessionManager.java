@@ -36,9 +36,9 @@ public class NettySessionManager {
         sessions.remove(session.getId());
     }
 
-    public void updateAccessTime(HttpSession session){
-        if(session instanceof NettyHttpSession){
-            ((NettyHttpSession)session).updateAccessTime();
+    public void updateAccessTime(NettyHttpSession session){
+        if(session != null){
+            session.updateAccessTime();
         }
     }
 
