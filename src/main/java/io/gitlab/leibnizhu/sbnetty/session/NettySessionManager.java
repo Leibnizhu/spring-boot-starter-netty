@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NettySessionManager {
     private NettyContext servletContext;
     private Map<String, NettyHttpSession> sessions = new ConcurrentHashMap<>();
-    private static final int SESSION_LIFE_MILLISECONDS = 1000 * 60 * 30;
+    public static final int SESSION_LIFE_MILLISECONDS = 1000 * 60 * 30;
     private static final int SESSION_LIFE_CHECK_INTER = 1000 * 60;
 
     public NettySessionManager(NettyContext servletContext){
@@ -37,8 +37,8 @@ public class NettySessionManager {
         }
     }
 
-    public boolean checkValid(HttpSession session) {
-        return session != null && session instanceof NettyHttpSession && sessions.get(session.getId()) != null;
+    public boolean checkValid(NettyHttpSession session) {
+        return session != null && sessions.get(session.getId()) != null && !session.expire();
     }
 
     public NettyHttpSession getSession(String id){
@@ -57,9 +57,9 @@ public class NettySessionManager {
         return new StringBuilder().append(System.currentTimeMillis()).reverse().append(prefix).toString();
     }
 
-    public void setOldSession(HttpSession session) {
-        if(session instanceof NettyHttpSession){
-            ((NettyHttpSession)session).setNew(false);
+    public void setOldSession(NettyHttpSession session) {
+        if(session != null){
+            session.setNew(false);
         }
     }
 

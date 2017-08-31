@@ -23,6 +23,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.gitlab.leibnizhu.sbnetty.session.NettySessionManager.SESSION_LIFE_MILLISECONDS;
 
 /**
  * Http响应对象
@@ -94,7 +95,7 @@ public class NettyHttpServletResponse implements HttpServletResponse {
         //先处理Session ，如果是新Session需要通过Cookie写入
         if (request.getSession().isNew()) {
             String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME + "=" + request.getRequestedSessionId() + "; path=/; Expires="
-                    + FORMAT.get().format(new Date(curTime + 1800000)) + "; domain=" + request.getServerName();
+                    + FORMAT.get().format(new Date(curTime + SESSION_LIFE_MILLISECONDS)) + "; domain=" + request.getServerName();
             headers.add(HttpHeaderNames.SET_COOKIE, sessionCookieStr);
         }
         //其他业务或框架设置的cookie，逐条写入到响应头去

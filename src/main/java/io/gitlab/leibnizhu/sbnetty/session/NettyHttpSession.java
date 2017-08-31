@@ -132,7 +132,6 @@ public class NettyHttpSession implements HttpSession, Serializable {
         manager.invalidate(this);
     }
 
-    //TODO 实现之，是否新Session（客户端尚未知道）
     private boolean isNew = true;
     @Override
     public boolean isNew() {
@@ -141,5 +140,13 @@ public class NettyHttpSession implements HttpSession, Serializable {
 
     public void setNew(boolean isNew){
         this.isNew = isNew;
+    }
+
+    /**
+     * 是否过期
+     * @return
+     */
+    public boolean expire(){
+        return System.currentTimeMillis() - creationTime >= NettySessionManager.SESSION_LIFE_MILLISECONDS;
     }
 }
