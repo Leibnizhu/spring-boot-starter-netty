@@ -299,6 +299,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     private void recoverySession(NettyHttpSession curSession) {
         this.session = curSession;
         this.session.setNew(false);
+        this.session.setLastAccessedTime(System.currentTimeMillis());
     }
 
     @Override

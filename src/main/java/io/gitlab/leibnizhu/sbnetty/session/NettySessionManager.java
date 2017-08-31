@@ -1,6 +1,8 @@
 package io.gitlab.leibnizhu.sbnetty.session;
 
 import io.gitlab.leibnizhu.sbnetty.core.NettyContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
@@ -13,21 +15,24 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created on 2017-08-28 20:59.
  */
 public class NettySessionManager {
+    private Logger log = LoggerFactory.getLogger(getClass());
+
     private NettyContext servletContext;
     private Map<String, NettyHttpSession> sessions = new ConcurrentHashMap<>();
-    public static final int SESSION_LIFE_MILLISECONDS = 1000 * 60 * 30;
+    private static final int SESSION_LIFE_SECONDS = 60 * 30;
+    static final int SESSION_LIFE_MILLISECONDS = SESSION_LIFE_SECONDS * 1000;
     private static final int SESSION_LIFE_CHECK_INTER = 1000 * 60;
 
     public NettySessionManager(NettyContext servletContext){
         this.servletContext = servletContext;
-        new Thread(new checkInvalidSessions()).start();
+        new Thread(new checkInvalidSessions(), "Session-Check").start();
     }
 
-    public ServletContext getServletContext() {
+    ServletContext getServletContext() {
         return servletContext;
     }
 
-    public void invalidate(HttpSession session) {
+    void invalidate(HttpSession session) {
         sessions.remove(session.getId());
     }
 
@@ -69,6 +74,7 @@ public class NettySessionManager {
     private class checkInvalidSessions implements Runnable {
         @Override
         public void run() {
+            log.info("Session Manager expire-checking thread has been started...");
             while(true){
                 try {
                     Thread.sleep(SESSION_LIFE_CHECK_INTER);
@@ -78,6 +84,7 @@ public class NettySessionManager {
                 long curTime = System.currentTimeMillis();
                 for(NettyHttpSession session : sessions.values()){
                     if(curTime - session.getLastAccessedTime() >= SESSION_LIFE_MILLISECONDS){
+                        log.info("Session(ID={}) is invalidated by Session Manager", session.getId());
                         session.invalidate();
                     }
                 }

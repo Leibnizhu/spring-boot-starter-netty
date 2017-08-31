@@ -23,7 +23,7 @@ public class NettyHttpSession implements HttpSession, Serializable {
     private int interval;
     private String id;
 
-    public NettyHttpSession(String id, NettySessionManager manager){
+    NettyHttpSession(String id, NettySessionManager manager){
         long curTime = System.currentTimeMillis();
         this.creationTime = curTime;
         this.lastAccessedTime = curTime;
@@ -55,6 +55,10 @@ public class NettyHttpSession implements HttpSession, Serializable {
     @Override
     public long getLastAccessedTime() {
         return lastAccessedTime;
+    }
+
+    public void setLastAccessedTime(long time){
+        this.lastAccessedTime = time;
     }
 
     @Override
@@ -129,7 +133,9 @@ public class NettyHttpSession implements HttpSession, Serializable {
     @Override
     public void invalidate() {
         attributes.clear();
+        attributes = null;
         manager.invalidate(this);
+        manager = null;
     }
 
     private boolean isNew = true;

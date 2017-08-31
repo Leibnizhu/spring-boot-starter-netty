@@ -23,7 +23,6 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.gitlab.leibnizhu.sbnetty.session.NettySessionManager.SESSION_LIFE_MILLISECONDS;
 
 /**
  * Http响应对象
@@ -94,15 +93,14 @@ public class NettyHttpServletResponse implements HttpServletResponse {
         long curTime = System.currentTimeMillis(); //用于根据maxAge计算Cookie的Expires
         //先处理Session ，如果是新Session需要通过Cookie写入
         if (request.getSession().isNew()) {
-            String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME + "=" + request.getRequestedSessionId() + "; path=/; Expires="
-                    + FORMAT.get().format(new Date(curTime + SESSION_LIFE_MILLISECONDS)) + "; domain=" + request.getServerName();
+            String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME + "=" + request.getRequestedSessionId() + "; path=/; domain=" + request.getServerName();
             headers.add(HttpHeaderNames.SET_COOKIE, sessionCookieStr);
         }
         //其他业务或框架设置的cookie，逐条写入到响应头去
         for (Cookie cookie : cookies) {
             StringBuilder sb = new StringBuilder();
             sb.append(cookie.getName()).append("=").append(cookie.getValue())
-                    .append("; Expires=").append(FORMAT.get().format(new Date(cookie.getMaxAge())));
+                    .append("; max-Age=").append(cookie.getMaxAge());
             if (cookie.getPath() != null) sb.append("; path=").append(cookie.getPath());
             if (cookie.getDomain() != null) sb.append("; domain=").append(cookie.getDomain());
             headers.add(HttpHeaderNames.SET_COOKIE, sb.toString());

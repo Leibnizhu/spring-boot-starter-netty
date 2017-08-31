@@ -8,8 +8,6 @@ import org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -25,8 +23,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.List;
 import java.util.concurrent.Callable;
 
 /**
@@ -40,7 +36,7 @@ public class TestWebApp extends WebMvcConfigurerAdapter {
 
     private static final String MESSAGE = "Hello, World!这是一条测试语句";
 
-    @RequestMapping(value = "/plaintext")
+    @RequestMapping(value = "/plaintext", produces = "text/plain; chartset=UTF-8")
     @ResponseBody
     public String plaintext() {
         return MESSAGE;
@@ -113,6 +109,7 @@ public class TestWebApp extends WebMvcConfigurerAdapter {
         SpringApplication.run(TestWebApp.class, args);
     }
 
+/*
     @Override
     public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
         super.configureMessageConverters(converters);
@@ -120,6 +117,7 @@ public class TestWebApp extends WebMvcConfigurerAdapter {
         converter.setWriteAcceptCharset(false);
         converters.add(converter);
     }
+*/
 
     private static class Message {
         private final String message;
