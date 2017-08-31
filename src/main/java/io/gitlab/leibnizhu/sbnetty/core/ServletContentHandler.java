@@ -20,6 +20,14 @@ public class ServletContentHandler extends ChannelInboundHandlerAdapter {
         this.servletContext = servletContext;
     }
 
+    public NettyContext getServletContext() {
+        return servletContext;
+    }
+
+    public HttpRequestInputStream getInputStream() {
+        return inputStream;
+    }
+
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         inputStream = new HttpRequestInputStream(ctx.channel());
@@ -32,7 +40,7 @@ public class ServletContentHandler extends ChannelInboundHandlerAdapter {
             HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, false);
             HttpUtil.setKeepAlive(response, HttpUtil.isKeepAlive(request));
             NettyHttpServletResponse servletResponse = new NettyHttpServletResponse(ctx, servletContext, response);
-            NettyHttpServletRequest servletRequest = new NettyHttpServletRequest(ctx, servletContext, request, servletResponse, inputStream);
+            NettyHttpServletRequest servletRequest = new NettyHttpServletRequest(ctx, this, request, servletResponse);
             servletResponse.setRequest(servletRequest);
             if (HttpUtil.is100ContinueExpected(request)) { //请求头包含Expect: 100-continue
                 ctx.write(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE), ctx.voidPromise());

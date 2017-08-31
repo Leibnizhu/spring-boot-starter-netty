@@ -3,6 +3,7 @@ package io.gitlab.leibnizhu.sbnetty.request;
 import io.gitlab.leibnizhu.sbnetty.core.NettyAsyncContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyRequestDispatcher;
+import io.gitlab.leibnizhu.sbnetty.core.ServletContentHandler;
 import io.gitlab.leibnizhu.sbnetty.session.NettyHttpSession;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -36,26 +37,15 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     private NettyAsyncContext asyncContext;
     private HttpServletResponse servletResponse;
 
-    public NettyHttpServletRequest(ChannelHandlerContext ctx, NettyContext servletContext, HttpRequest request, HttpServletResponse servletResponse, HttpRequestInputStream inputStream) {
+    public NettyHttpServletRequest(ChannelHandlerContext ctx, ServletContentHandler handler, HttpRequest request, HttpServletResponse servletResponse) {
         this.ctx = ctx;
-        this.servletContext = servletContext;
+        this.servletContext = handler.getServletContext();
         this.request = request;
         this.servletResponse = servletResponse;
-        this.inputStream = inputStream;
+        this.inputStream = handler.getInputStream();
         this.attributes = new ConcurrentHashMap<>();
         this.headers = request.headers();
-        //处理servletPath
-        String servletPath = request.uri().replace(servletContext.getContextPath(), "");
-        if (!servletPath.startsWith("/")) {
-            servletPath = "/" + servletPath;
-        }
-        int queryInx = servletPath.indexOf('?');
-        if (queryInx > -1) {
-            this.queryString = servletPath.substring(queryInx + 1, servletPath.length());
-            servletPath = servletPath.substring(0, queryInx);
-        }
-        this.servletPath = servletPath;
-        this.requestUri = this.servletContext.getContextPath() + servletPath; //TODO 加上pathInfo
+
         parseCookie();
         parseSession();
     }
@@ -154,6 +144,28 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     private String queryString;
     private String pathInfo;
     private String requestUri;
+    private transient boolean isPathsParsed = false;
+
+    private void checkAndParsePaths(){
+        if(isPathsParsed){
+            return;
+        }
+
+        String servletPath = request.uri().replace(servletContext.getContextPath(), "");
+        if (!servletPath.startsWith("/")) {
+            servletPath = "/" + servletPath;
+        }
+        int queryInx = servletPath.indexOf('?');
+        if (queryInx > -1) {
+            this.queryString = servletPath.substring(queryInx + 1, servletPath.length());
+            servletPath = servletPath.substring(0, queryInx);
+        }
+        this.servletPath = servletPath;
+        this.requestUri = this.servletContext.getContextPath() + servletPath; //TODO 加上pathInfo
+        this.pathInfo = null;
+
+        isPathsParsed = true;
+    }
 
     @Override
     public String getMethod() {
@@ -166,7 +178,26 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     // 需要在RequestUrlPatternMapper匹配的时候设置,new NettyRequestDispatcher的时候传入MapperData
     @Override
     public String getPathInfo() {
+        checkAndParsePaths();
         return this.pathInfo;
+    }
+
+    @Override
+    public String getQueryString() {
+        checkAndParsePaths();
+        return this.queryString;
+    }
+
+    @Override
+    public String getRequestURI() {
+        checkAndParsePaths();
+        return this.requestUri;
+    }
+
+    @Override
+    public String getServletPath() {
+        checkAndParsePaths();
+        return this.servletPath;
     }
 
     @Override
@@ -175,23 +206,8 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     }
 
     @Override
-    public String getQueryString() {
-        return this.queryString;
-    }
-
-    @Override
-    public String getRequestURI() {
-        return this.requestUri;
-    }
-
-    @Override
     public StringBuffer getRequestURL() {
         return null;
-    }
-
-    @Override
-    public String getServletPath() {
-        return this.servletPath;
     }
 
     @Override
@@ -244,6 +260,9 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         }
     }
 
+    /**
+     * @return 从URL解析到的SessionID
+     */
     private String getSessionIdFromUrl() {
         StringBuilder u = new StringBuilder(request.uri());
         int sessionStart = u.toString().indexOf(";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=");
@@ -258,6 +277,9 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         return u.substring(sessionStart + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME.length() + 2, sessionEnd);
     }
 
+    /**
+     * @return 从Cookie解析到的SessionID
+     */
     private String getSessionIdFromCookie() {
         if(cookies == null){
             return null;
@@ -270,21 +292,25 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         return null;
     }
 
+    /**
+     * 恢复旧Session
+     * @param curSession 要恢复的Session对象
+     */
     private void recoverySession(NettyHttpSession curSession) {
         this.session = curSession;
-        servletContext.getSessionManager().setOldSession(this.session);
+        this.session.setNew(false);
     }
 
     @Override
     public HttpSession getSession(boolean create) {
-        boolean valid = isRequestedSessionIdValid();
+        boolean valid = isRequestedSessionIdValid(); //在管理器存在，且没到期
         //可用则直接返回
         if (valid) {
             return session.getSession();
         }
         //不可用则判断是否新建
         if (!create) {
-            session = null;
+            session = null; //如果过期了设为null
             return null;
         }
         //不可用且允许新建则新建之
@@ -416,7 +442,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     private InetSocketAddress socketAddress; //请求的服务地址
     private transient boolean isServerParsed = false; //请求服务地址是否已经解析过
 
-    private void checkAndParsedServer() {
+    private void checkAndParseServer() {
         if (isServerParsed) {
             return;
         }
@@ -434,13 +460,13 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     @Override
     public String getServerName() {
-        checkAndParsedServer();
+        checkAndParseServer();
         return socketAddress.getHostName();
     }
 
     @Override
     public int getServerPort() {
-        checkAndParsedServer();
+        checkAndParseServer();
         return socketAddress.getPort();
     }
 
@@ -549,11 +575,13 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     /*====== multipart/form-data 相关方法 开始 ======*/
     @Override
     public Collection<Part> getParts() throws IOException, IllegalStateException, ServletException {
+        //TODO
         return null;
     }
 
     @Override
     public Part getPart(String name) throws IOException, IllegalStateException, ServletException {
+        //TODO
         return null;
     }
 
