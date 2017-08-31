@@ -8,12 +8,15 @@ import org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 
 import javax.servlet.ServletException;
 import javax.servlet.ServletInputStream;
@@ -22,6 +25,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 /**
@@ -30,12 +35,12 @@ import java.util.concurrent.Callable;
 @EnableAutoConfiguration(exclude = WebMvcAutoConfiguration.class)
 @ComponentScan(basePackages = {"io.gitlab.leibnizhu.sbnetty"})
 @EnableWebMvc
-public class TestWebApp {
+public class TestWebApp extends WebMvcConfigurerAdapter {
     private Logger log = LoggerFactory.getLogger(getClass());
 
     private static final String MESSAGE = "Hello, World!这是一条测试语句";
 
-    @RequestMapping(value = "/plaintext", produces = "text/plain")
+    @RequestMapping(value = "/plaintext")
     @ResponseBody
     public String plaintext() {
         return MESSAGE;
@@ -47,13 +52,13 @@ public class TestWebApp {
         return () -> MESSAGE;
     }
 
-    @RequestMapping(value = "/json", produces = "application/json")
+    @RequestMapping(value = "/json")
     @ResponseBody
     public Message json(@RequestParam String msg) {
         return new Message(MESSAGE + ". msg="+ msg);
     }
 
-    @RequestMapping(value = "/session", produces = "application/json")
+    @RequestMapping(value = "/session")
     @ResponseBody
     public Message session(@RequestParam String msg, HttpSession session, HttpServletRequest req) {
         if(session.getAttribute("aaa") == null){
@@ -106,6 +111,14 @@ public class TestWebApp {
 
     public static void main(String[] args) {
         SpringApplication.run(TestWebApp.class, args);
+    }
+
+    @Override
+    public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+        super.configureMessageConverters(converters);
+        StringHttpMessageConverter converter = new StringHttpMessageConverter(Charset.forName("UTF-8"));
+        converter.setWriteAcceptCharset(false);
+        converters.add(converter);
     }
 
     private static class Message {
