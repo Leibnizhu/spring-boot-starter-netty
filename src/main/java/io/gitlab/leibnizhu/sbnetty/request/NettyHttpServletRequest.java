@@ -46,7 +46,6 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         this.attributes = new ConcurrentHashMap<>();
         this.headers = request.headers();
 
-        parseCookie();
         parseSession();
     }
 
@@ -281,6 +280,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
      * @return 从Cookie解析到的SessionID
      */
     private String getSessionIdFromCookie() {
+        Cookie[] cookies = getCookies();
         if(cookies == null){
             return null;
         }
