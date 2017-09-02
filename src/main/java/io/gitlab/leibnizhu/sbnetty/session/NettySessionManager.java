@@ -19,7 +19,7 @@ public class NettySessionManager {
 
     private NettyContext servletContext;
     private Map<String, NettyHttpSession> sessions = new ConcurrentHashMap<>();
-    private static final int SESSION_LIFE_SECONDS = 60 * 30;
+    static final int SESSION_LIFE_SECONDS = 60 * 30;
     static final int SESSION_LIFE_MILLISECONDS = SESSION_LIFE_SECONDS * 1000;
     private static final int SESSION_LIFE_CHECK_INTER = 1000 * 60;
 
@@ -83,7 +83,7 @@ public class NettySessionManager {
                 }
                 long curTime = System.currentTimeMillis();
                 for(NettyHttpSession session : sessions.values()){
-                    if(curTime - session.getLastAccessedTime() >= SESSION_LIFE_MILLISECONDS){
+                    if(session.expire()){
                         log.info("Session(ID={}) is invalidated by Session Manager", session.getId());
                         session.invalidate();
                     }

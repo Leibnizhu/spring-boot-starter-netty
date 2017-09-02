@@ -20,7 +20,7 @@ public class NettyHttpSession implements HttpSession, Serializable {
     private NettySessionManager manager;
     private long creationTime;
     private long lastAccessedTime;
-    private int interval;
+    private int interval = NettySessionManager.SESSION_LIFE_SECONDS;
     private String id;
 
     NettyHttpSession(String id, NettySessionManager manager){
@@ -149,6 +149,6 @@ public class NettyHttpSession implements HttpSession, Serializable {
      * @return
      */
     public boolean expire(){
-        return System.currentTimeMillis() - creationTime >= NettySessionManager.SESSION_LIFE_MILLISECONDS;
+        return System.currentTimeMillis() - creationTime >= interval * 1000;
     }
 }

@@ -90,7 +90,7 @@ public class NettyHttpServletResponse implements HttpServletResponse {
         headers.set(HttpHeaderNames.SERVER, servletContext.getServerInfo()); //服务器信息响应头
 
         // cookies处理
-        long curTime = System.currentTimeMillis(); //用于根据maxAge计算Cookie的Expires
+//        long curTime = System.currentTimeMillis(); //用于根据maxAge计算Cookie的Expires
         //先处理Session ，如果是新Session需要通过Cookie写入
         if (request.getSession().isNew()) {
             String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME + "=" + request.getRequestedSessionId() + "; path=/; domain=" + request.getServerName();
