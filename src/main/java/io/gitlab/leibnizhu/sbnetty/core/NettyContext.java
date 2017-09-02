@@ -177,7 +177,8 @@ public class NettyContext implements ServletContext {
     @Override
     public RequestDispatcher getRequestDispatcher(String path) {
         String servletName = servletUrlPatternMapper.getServletNameByRequestURI(path);
-        /*if (servletName == null) {
+        /*String servletName = servletMappings.get(path);
+        if (servletName == null) {
             servletName = servletMappings.get("/");
         }*/
         Servlet servlet;
