@@ -109,7 +109,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     @Override
     public long getDateHeader(String name) {
-        return this.headers.getTimeMillis(name);
+        return Optional.ofNullable(this.headers.getTimeMillis(name)).orElse(-1L);
     }
 
     @Override
