@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.*;
 import javax.servlet.descriptor.JspConfigDescriptor;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -157,8 +158,16 @@ public class NettyContext implements ServletContext {
         URL url = new URL(getClassLoader().getResource(""), path.substring(1));
         try {
             url.openStream();
+        } catch(FileNotFoundException e){
+            url = new URL(getClassLoader().getResource(""), "static/" + path.substring(1));
+            try {
+                url.openStream();
+            } catch (IOException e1) {
+                log.error("Throwing exception when getting InputStream of " + path + " in /static", e1);
+                url = null;
+            }
         } catch (Throwable t) {
-            log.error("Throwing exception when getting InputStream of " + path, t);
+            log.error("Throwing exception when getting InputStream of " + path + " in /", t);
             url = null;
         }
         return url;
