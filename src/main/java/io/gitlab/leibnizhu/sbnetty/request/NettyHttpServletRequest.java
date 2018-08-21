@@ -149,18 +149,22 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         if(isPathsParsed){
             return;
         }
-
-        String servletPath = request.uri().replace(servletContext.getContextPath(), "");
-        if (!servletPath.startsWith("/")) {
-            servletPath = "/" + servletPath;
+        if(request.uri().startsWith(servletContext.getContextPath())) {
+            String servletPath = request.uri().substring(servletContext.getContextPath().length());
+            if (!servletPath.startsWith("/")) {
+                servletPath = "/" + servletPath;
+            }
+            int queryInx = servletPath.indexOf('?');
+            if (queryInx > -1) {
+                this.queryString = servletPath.substring(queryInx + 1);
+                servletPath = servletPath.substring(0, queryInx);
+            }
+            this.servletPath = servletPath;
+            this.requestUri = this.servletContext.getContextPath() + servletPath; //TODO 加上pathInfo
+        } else {
+            this.servletPath = "";
+            this.requestUri = "";
         }
-        int queryInx = servletPath.indexOf('?');
-        if (queryInx > -1) {
-            this.queryString = servletPath.substring(queryInx + 1, servletPath.length());
-            servletPath = servletPath.substring(0, queryInx);
-        }
-        this.servletPath = servletPath;
-        this.requestUri = this.servletContext.getContextPath() + servletPath; //TODO 加上pathInfo
         this.pathInfo = null;
 
         isPathsParsed = true;
@@ -522,8 +526,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         attributes.put(name, o);
     }
 
-    @Override
-    public void removeAttribute(String name) {
+    @Override    public void removeAttribute(String name) {
         attributes.remove(name);
     }
 
