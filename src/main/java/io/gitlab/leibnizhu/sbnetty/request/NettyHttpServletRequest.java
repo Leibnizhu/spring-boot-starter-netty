@@ -462,13 +462,13 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     @Override
     public String getServerName() {
         checkAndParseServer();
-        return socketAddress.getHostName();
+        return Optional.ofNullable(socketAddress).map(InetSocketAddress::getHostName).orElse("");
     }
 
     @Override
     public int getServerPort() {
         checkAndParseServer();
-        return socketAddress.getPort();
+        return Optional.ofNullable(socketAddress).map(InetSocketAddress::getPort).orElse(-1);
     }
 
     @Override
