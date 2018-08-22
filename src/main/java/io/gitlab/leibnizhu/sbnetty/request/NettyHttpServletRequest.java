@@ -7,6 +7,7 @@ import io.gitlab.leibnizhu.sbnetty.core.ServletContentHandler;
 import io.gitlab.leibnizhu.sbnetty.session.NettyHttpSession;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
@@ -381,15 +382,33 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             return;
         }
 
-        QueryStringDecoder queryStringDecoder = new QueryStringDecoder(request.uri());
+        stringToInsertMap(request.uri());
+        //处理POST请求的请求参数
+        if (request.method().equals(HttpMethod.POST) && inputStream.isReady()) {
+            try {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+                while ((line = br.readLine()) != null) sb.append(line);
+                String body = sb.toString();
+                stringToInsertMap("?" + body);
+                inputStream.closeCurrentHttpContent(); //关闭当前http请求体,这样下次请求的时候,才能正常处理,不被误判为流已结束
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        this.isParameterParsed = true;
+    }
+
+    private void stringToInsertMap(String source) {
+        QueryStringDecoder queryStringDecoder = new QueryStringDecoder(source);
         Map<String, List<String>> params = queryStringDecoder.parameters();
         for (Map.Entry<String, List<String>> entry : params.entrySet()) {
             List<String> valueList = entry.getValue();
             String[] valueArray = new String[valueList.size()];
             paramMap.put(entry.getKey(), valueList.toArray(valueArray));
         }
-
-        this.isParameterParsed = true;
     }
 
     /**

@@ -112,7 +112,7 @@ public class HttpRequestInputStream extends ServletInputStream {
     /**
      * 关闭当前HttpContent
      */
-    private void closeCurrentHttpContent() {
+    public void closeCurrentHttpContent() {
         if(current != null){
             current.release();
             current = null;
