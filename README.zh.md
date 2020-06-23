@@ -24,7 +24,7 @@
     <dependency>
         <groupId>io.gitlab.leibnizhu</groupId>
         <artifactId>spring-boot-starter-netty</artifactId>
-        <version>1.0</version>
+        <version>1.1</version>
     </dependency>
 </dependencies>
 ```
