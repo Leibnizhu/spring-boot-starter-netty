@@ -62,7 +62,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.2.Final</version>
+            <version>4.1.50.Final</version>
         </dependency>
         <dependency>
             <groupId>org.javassist</groupId>
@@ -98,12 +98,12 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>18.0</version>
+            <version>29.0-jre</version>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
-            <version>1.2.36</version>
+            <version>1.2.71</version>
             <scope>test</scope>
         </dependency>
         <dependency>

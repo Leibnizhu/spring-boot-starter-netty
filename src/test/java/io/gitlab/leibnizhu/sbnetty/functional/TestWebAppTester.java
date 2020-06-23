@@ -32,7 +32,7 @@ public class TestWebAppTester {
 
     @Test
     public void jsonTest() throws Exception {
-        MvcResult result = mockMvc.perform(get("http://localhost:8080/json"))
+        MvcResult result = mockMvc.perform(get("http://localhost:9999/netty/json?msg=1abc"))
 //                .andExpect(MockMvcResultMatchers.content().json("{\"message\":\"Hello, World!\"}"))
                 .andReturn();
         String resultStr = result.getResponse().getContentAsString();

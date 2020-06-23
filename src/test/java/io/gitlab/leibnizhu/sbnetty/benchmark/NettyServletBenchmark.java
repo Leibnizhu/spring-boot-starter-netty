@@ -34,7 +34,7 @@ public class NettyServletBenchmark {
         getUrl("http://localhost:9999/netty/json?msg=1", false);
     }
 
-    public static void _main(String[] args) throws RunnerException {
+    public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + NettyServletBenchmark.class.getSimpleName() + ".*")
                 .forks(1)
