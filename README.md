@@ -23,7 +23,7 @@ This project has been publish into maven center repository, refer to [The Centra
     <dependency>
         <groupId>io.gitlab.leibnizhu</groupId>
         <artifactId>spring-boot-starter-netty</artifactId>
-        <version>1.1</version>
+        <version>1.1-RELEASE</version>
     </dependency>
 </dependencies>
 ```
