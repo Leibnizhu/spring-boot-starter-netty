@@ -1,22 +1,24 @@
 package io.gitlab.leibnizhu.sbnetty.bootstrap;
 
-import io.gitlab.leibnizhu.sbnetty.core.NettyContainer;
-import io.gitlab.leibnizhu.sbnetty.core.NettyContext;
-import io.netty.bootstrap.Bootstrap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.embedded.AbstractEmbeddedServletContainerFactory;
-import org.springframework.boot.context.embedded.EmbeddedServletContainer;
-import org.springframework.boot.web.servlet.ServletContextInitializer;
-import org.springframework.context.ResourceLoaderAware;
-import org.springframework.core.io.ResourceLoader;
-import org.springframework.util.ClassUtils;
-
-import javax.servlet.ServletException;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Random;
+
+import javax.servlet.ServletException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.web.server.WebServer;
+import org.springframework.boot.web.servlet.ServletContextInitializer;
+import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
+import org.springframework.context.ResourceLoaderAware;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.util.ClassUtils;
+
+import io.gitlab.leibnizhu.sbnetty.core.NettyContainer;
+import io.gitlab.leibnizhu.sbnetty.core.NettyContext;
+import io.netty.bootstrap.Bootstrap;
 
 /**
  * Spring Boot会查找EmbeddedServletContainerFactory接口的实现类(工厂类)，调用其getEmbeddedServletContainer()方法，来获取web应用的容器
@@ -24,13 +26,13 @@ import java.util.Random;
  *
  * @author Leibniz on 2017-08-24.
  */
-public class EmbeddedNettyFactory extends AbstractEmbeddedServletContainerFactory implements ResourceLoaderAware {
+public class EmbeddedNettyFactory extends AbstractServletWebServerFactory implements ResourceLoaderAware {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private static final String SERVER_INFO = "Netty@SpringBoot";
     private ResourceLoader resourceLoader;
 
-    @Override
-    public EmbeddedServletContainer getEmbeddedServletContainer(ServletContextInitializer... initializers) {
+	@Override
+	public WebServer getWebServer(ServletContextInitializer... initializers) {
         ClassLoader parentClassLoader = resourceLoader != null ? resourceLoader.getClassLoader() : ClassUtils.getDefaultClassLoader();
         //Netty启动环境相关信息
         Package nettyPackage = Bootstrap.class.getPackage();
@@ -61,4 +63,5 @@ public class EmbeddedNettyFactory extends AbstractEmbeddedServletContainerFactor
     public void setResourceLoader(ResourceLoader resourceLoader) {
         this.resourceLoader = resourceLoader;
     }
+
 }
