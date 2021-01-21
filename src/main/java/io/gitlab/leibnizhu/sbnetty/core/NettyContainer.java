@@ -14,8 +14,8 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.boot.context.embedded.EmbeddedServletContainer;
-import org.springframework.boot.context.embedded.EmbeddedServletContainerException;
+import org.springframework.boot.web.server.WebServer;
+import org.springframework.boot.web.server.WebServerException;
 
 import java.net.InetSocketAddress;
 
@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author Leibniz
  */
-public class NettyContainer implements EmbeddedServletContainer {
+public class NettyContainer implements WebServer {
     private final Log log = LogFactory.getLog(getClass());
 
     private final InetSocketAddress address; //监听端口地址
@@ -45,7 +45,7 @@ public class NettyContainer implements EmbeddedServletContainer {
     }
 
     @Override
-    public void start() throws EmbeddedServletContainerException {
+    public void start() throws WebServerException {
         servletContext.setInitialised(false);
 
         ServerBootstrap sb = new ServerBootstrap();
@@ -84,7 +84,7 @@ public class NettyContainer implements EmbeddedServletContainer {
         ChannelFuture future = sb.bind(address).awaitUninterruptibly();
         Throwable cause = future.cause();
         if (null != cause) {
-            throw new EmbeddedServletContainerException("Could not start Netty server", cause);
+            throw new WebServerException("Could not start Netty server", cause);
         }
         log.info(servletContext.getServerInfo() + " started on port: " + getPort());
     }
@@ -95,7 +95,7 @@ public class NettyContainer implements EmbeddedServletContainer {
      * @throws EmbeddedServletContainerException
      */
     @Override
-    public void stop() throws EmbeddedServletContainerException {
+    public void stop() throws WebServerException {
         log.info("Embedded Netty Servlet Container(by Leibniz.Hu) is now shuting down.");
         try {
             if (null != bossGroup) {
@@ -108,7 +108,7 @@ public class NettyContainer implements EmbeddedServletContainer {
                 servletExecutor.shutdownGracefully().await();
             }
         } catch (InterruptedException e) {
-            throw new EmbeddedServletContainerException("Container stop interrupted", e);
+            throw new WebServerException("Container stop interrupted", e);
         }
     }
 
