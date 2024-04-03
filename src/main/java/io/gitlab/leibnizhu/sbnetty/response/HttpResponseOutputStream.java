@@ -101,31 +101,19 @@ public class HttpResponseOutputStream extends ServletOutputStream {
     }
 
     private void writeContent(ByteBuf content, boolean lastContent) {
-        // TODO block if channel is not writable to avoid heap utilisation
-        if (!servletResponse.isCommitted()) {
-            writeResponse(lastContent);
-        }
-        if (content.readableBytes() > 0) {
+        boolean hasBody = content.readableBytes() > 0;
+        servletResponse.ensureResponseHeader(hasBody);
+        if (hasBody) {
             assert content.refCnt() == 1;
             ctx.write(content, ctx.voidPromise());
         }
         if (lastContent) {
-            HttpResponse nettyResponse = servletResponse.getNettyResponse();
             ChannelFuture future = ctx.write(DefaultLastHttpContent.EMPTY_LAST_CONTENT);
-            if (!HttpUtil.isKeepAlive(nettyResponse)) {
+            if (!servletResponse.isKeepAlive()) {
                 future.addListener(ChannelFutureListener.CLOSE);//如果不是keep-alive，写完后关闭channel
             }
+            servletResponse.commit();
         }
-    }
-
-    private void writeResponse(boolean lastContent) {
-        HttpResponse response = servletResponse.getNettyResponse();
-        // TODO implement exceptions required by http://tools.ietf.org/html/rfc2616#section-4.4
-        // 设置content-length头
-        if (!HttpUtil.isContentLengthSet(response)) {
-            HttpUtil.setContentLength(response, totalLength);
-        }
-        ctx.write(response, ctx.voidPromise());
     }
 
     @Override
