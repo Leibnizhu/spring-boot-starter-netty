@@ -6,14 +6,15 @@ import org.slf4j.LoggerFactory;
 
 import javax.servlet.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Servlet的注册器，一个Servlet对应一个注册器
  */
 public class NettyServletRegistration extends AbstractNettyRegistration implements ServletRegistration.Dynamic {
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private volatile boolean initialised;
-    private Servlet servlet;
+    private final AtomicBoolean initialised = new AtomicBoolean(false);
+    private volatile Servlet servlet;
     private Collection<String> urlPatternMappings = new LinkedList<>();
 
     public NettyServletRegistration(NettyContext context, String servletName, String className, Servlet servlet) {
@@ -21,20 +22,21 @@ public class NettyServletRegistration extends AbstractNettyRegistration implemen
         this.servlet = servlet;
     }
 
-    public Servlet getServlet() throws ServletException {
-        if (!initialised) {
+    public Servlet getServlet(boolean ensureInitialized) throws ServletException {
+        if (servlet == null) {
             synchronized (this) {
-                if (!initialised) {
-                    if (null == servlet) {
-                        try {
-                            servlet = (Servlet) Class.forName(getClassName()).newInstance(); //反射获取实例
-                        } catch (Exception e) {
-                            throw new ServletException(e);
-                        }
+                if (servlet == null) {
+                    try {
+                        servlet = (Servlet) Class.forName(getClassName()).newInstance(); //反射获取实例
+                    } catch (Exception e) {
+                        throw new ServletException(e);
                     }
-                    servlet.init(this); //初始化Servlet
-                    initialised = true;
                 }
+            }
+        }
+        if (ensureInitialized) {
+            if (initialised.compareAndSet(false, true)) {
+                servlet.init(this); //初始化Servlet
             }
         }
         return servlet;
@@ -71,7 +73,8 @@ public class NettyServletRegistration extends AbstractNettyRegistration implemen
         NettyContext context = getNettyContext();
         for (String urlPattern : urlPatterns) {
             try {
-                context.addServletMapping(urlPattern, getName(), getServlet());
+                // 这里获取servlet的时候，不能初始化，否则springboot刷新依赖遇到循环bean依赖时会失败
+                context.addServletMapping(urlPattern, getName(), getServlet(false));
             } catch (ServletException e) {
                 log.error("Throwing exception when getting Servlet in NettyServletRegistration.", e);
             }

@@ -192,7 +192,7 @@ public class NettyContext implements ServletContext {
         }*/
         Servlet servlet;
         try {
-            servlet = null == servletName ? null : servlets.get(servletName).getServlet();
+            servlet = null == servletName ? null : servlets.get(servletName).getServlet(true);
             if (servlet == null) {
                 return null;
             }
@@ -202,7 +202,7 @@ public class NettyContext implements ServletContext {
                 allNeedFilters.add(registration.getFilter());
             }
             FilterChain filterChain = new NettyFilterChain(servlet, allNeedFilters);
-            return new NettyRequestDispatcher(this, filterChain);
+            return new NettyRequestDispatcher( filterChain,path);
         } catch (ServletException e) {
             log.error("Throwing exception when getting Filter from NettyFilterRegistration of path " + path, e);
             return null;
@@ -216,7 +216,7 @@ public class NettyContext implements ServletContext {
 
     @Override
     public Servlet getServlet(String name) throws ServletException {
-        return servlets.get(name).getServlet();
+        return servlets.get(name).getServlet(true);
     }
 
     @Override

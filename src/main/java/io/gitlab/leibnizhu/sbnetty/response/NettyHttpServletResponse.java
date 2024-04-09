@@ -21,6 +21,7 @@ import java.nio.charset.Charset;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -57,7 +58,8 @@ public class NettyHttpServletResponse implements HttpServletResponse {
     private String contentType;
     private String characterEncoding = DEFAULT_CHARACTER_ENCODING;
     private Locale locale;
-
+    private final AtomicBoolean hasWriteHeader = new AtomicBoolean(false);
+    private final ChannelHandlerContext ctx;
     /**
      * 构造方法
      *
@@ -66,20 +68,37 @@ public class NettyHttpServletResponse implements HttpServletResponse {
      * @param response       Netty自带的http响应对象，初始化为200
      */
     public NettyHttpServletResponse(ChannelHandlerContext ctx, NettyContext servletContext, HttpResponse response) {
+        this.ctx = ctx;
         this.servletContext = servletContext;
         this.response = response;
         this.outputStream = new HttpResponseOutputStream(ctx, this);
         cookies = new ArrayList<>();
     }
 
-    /**
-     * 设置基本的请求头
-     */
-    public HttpResponse getNettyResponse() {
-        if (committed) {
-            return response;
+    public void commit() {
+        this.committed = true;
+    }
+
+
+    private boolean useChunked = false;
+
+    public boolean isUseChunked() {
+        return useChunked;
+    }
+
+    public void ensureResponseHeader(boolean hasBody) {
+        if (!hasWriteHeader.compareAndSet(false, true)) {
+            return;
         }
-        committed = true;
+        if (!HttpUtil.isContentLengthSet(response)) {
+            if (hasBody) {
+                // 在开始写body的时候，都还没有contentLength出现，那么这个请求应该是trunk的
+                response.headers().set(HttpHeaderNames.TRANSFER_ENCODING, HttpHeaderValues.CHUNKED);
+                useChunked = true;
+            } else {
+                HttpUtil.setContentLength(response, 0L);
+            }
+        }
         HttpHeaders headers = response.headers();
         if (null != contentType) {
             String value = null == characterEncoding ? contentType : contentType + "; charset=" + characterEncoding; //Content Type 响应头的内容
@@ -89,14 +108,12 @@ public class NettyHttpServletResponse implements HttpServletResponse {
         headers.set(HttpHeaderNames.DATE, date); // 时间日期响应头
         headers.set(HttpHeaderNames.SERVER, servletContext.getServerInfo()); //服务器信息响应头
 
-        // cookies处理
-//        long curTime = System.currentTimeMillis(); //用于根据maxAge计算Cookie的Expires
-        //先处理Session ，如果是新Session需要通过Cookie写入
+
         if (request.getSession().isNew()) {
             String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME + "=" + request.getRequestedSessionId() + "; path=/; domain=" + request.getServerName();
             headers.add(HttpHeaderNames.SET_COOKIE, sessionCookieStr);
         }
-        //其他业务或框架设置的cookie，逐条写入到响应头去
+
         for (Cookie cookie : cookies) {
             StringBuilder sb = new StringBuilder();
             sb.append(cookie.getName()).append("=").append(cookie.getValue())
@@ -105,9 +122,12 @@ public class NettyHttpServletResponse implements HttpServletResponse {
             if (cookie.getDomain() != null) sb.append("; domain=").append(cookie.getDomain());
             headers.add(HttpHeaderNames.SET_COOKIE, sb.toString());
         }
-        return response;
+        ctx.write(response);
     }
 
+    public boolean isKeepAlive() {
+        return HttpUtil.isKeepAlive(response);
+    }
     public NettyHttpServletResponse setRequest(NettyHttpServletRequest request) {
         this.request = request;
         return this;

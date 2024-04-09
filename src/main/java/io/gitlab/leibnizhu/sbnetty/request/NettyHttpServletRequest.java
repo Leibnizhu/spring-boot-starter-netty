@@ -6,14 +6,12 @@ import io.gitlab.leibnizhu.sbnetty.core.NettyRequestDispatcher;
 import io.gitlab.leibnizhu.sbnetty.core.ServletContentHandler;
 import io.gitlab.leibnizhu.sbnetty.session.NettyHttpSession;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.QueryStringDecoder;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
+import javax.servlet.http.Cookie;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -110,7 +108,16 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     @Override
     public long getDateHeader(String name) {
-        return Optional.ofNullable(this.headers.getTimeMillis(name)).orElse(-1L);
+        String value = headers.get(name);
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            try {
+                return headers.getTimeMillis(name, -1L);
+            } catch (Exception e2) {
+                return -1L;
+            }
+        }
     }
 
     @Override
@@ -211,7 +218,13 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     @Override
     public StringBuffer getRequestURL() {
-        return null;
+        checkAndParsePaths();
+        // 目前这个版本不支持ssl，所以一定是http
+        StringBuffer url = new StringBuffer();
+        url.append("http:").append("//")
+                .append(request.headers().get(HttpHeaderNames.HOST))
+                .append(getRequestURI());
+        return url;
     }
 
     @Override
@@ -703,7 +716,38 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     @Override
     public RequestDispatcher getRequestDispatcher(String path) {
-        return null;
+        if (path == null) {
+            return null;
+        }
+
+        int fragmentPos = path.indexOf('#');
+        if (fragmentPos > -1) {
+            path = path.substring(0, fragmentPos);
+        }
+
+        // If the path is already context-relative, just pass it through
+        if (path.startsWith("/")) {
+            return servletContext.getRequestDispatcher(path);
+        }
+        String pathInfo = getPathInfo();
+        String requestPath = null;
+
+        if (pathInfo == null) {
+            requestPath = servletPath;
+        } else {
+            requestPath = servletPath + pathInfo;
+        }
+
+        int pos = requestPath.lastIndexOf('/');
+        String relative = null;
+
+        if (pos >= 0) {
+            relative = requestPath.substring(0, pos + 1) + path;
+        } else {
+            relative = requestPath + path;
+        }
+        return servletContext.getRequestDispatcher(relative);
+
     }
 
     @Override
