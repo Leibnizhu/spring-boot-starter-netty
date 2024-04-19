@@ -46,45 +46,36 @@ public class NettyHttpServletResponse implements HttpServletResponse {
     private static final String DEFAULT_CHARACTER_ENCODING = Charsets.UTF_8.name();
 
     private final NettyContext servletContext;
-    private NettyHttpServletRequest request;
 
-    private HttpResponse response;
+    private final NettyHttpServletRequest httpServletRequest;
 
-    private HttpResponseOutputStream outputStream;
+    private final HttpResponse response;
+
+    private final HttpResponseOutputStream outputStream;
     private boolean usingOutputStream;
     private PrintWriter writer;
-    private boolean committed;
-    private List<Cookie> cookies;
+    private final List<Cookie> cookies;
     private String contentType;
     private String characterEncoding = DEFAULT_CHARACTER_ENCODING;
     private Locale locale;
     private final AtomicBoolean hasWriteHeader = new AtomicBoolean(false);
     private final ChannelHandlerContext ctx;
-    /**
-     * 构造方法
-     *
-     * @param ctx            Netty的Context
-     * @param servletContext ServletContext
-     * @param response       Netty自带的http响应对象，初始化为200
-     */
-    public NettyHttpServletResponse(ChannelHandlerContext ctx, NettyContext servletContext, HttpResponse response) {
+
+
+    public NettyHttpServletResponse(ChannelHandlerContext ctx, NettyContext servletContext, NettyHttpServletRequest httpServletRequest) {
         this.ctx = ctx;
         this.servletContext = servletContext;
-        this.response = response;
+        this.httpServletRequest = httpServletRequest;
         this.outputStream = new HttpResponseOutputStream(ctx, this);
-        cookies = new ArrayList<>();
+        this.cookies = new ArrayList<>();
+
+        this.response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, false);
+        HttpUtil.setKeepAlive(response, httpServletRequest.isKeepAlive());
     }
 
-    public void commit() {
-        this.committed = true;
-    }
 
 
     private boolean useChunked = false;
-
-    public boolean isUseChunked() {
-        return useChunked;
-    }
 
     public void ensureResponseHeader(boolean hasBody) {
         if (!hasWriteHeader.compareAndSet(false, true)) {
@@ -109,8 +100,11 @@ public class NettyHttpServletResponse implements HttpServletResponse {
         headers.set(HttpHeaderNames.SERVER, servletContext.getServerInfo()); //服务器信息响应头
 
 
-        if (request.getSession().isNew()) {
-            String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME + "=" + request.getRequestedSessionId() + "; path=/; domain=" + request.getServerName();
+        if (httpServletRequest.getSession().isNew()) {
+            String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME +
+                    "=" + httpServletRequest.getRequestedSessionId() +
+                    "; path=/; domain=" +
+                    httpServletRequest.getServerName();
             headers.add(HttpHeaderNames.SET_COOKIE, sessionCookieStr);
         }
 
@@ -126,11 +120,7 @@ public class NettyHttpServletResponse implements HttpServletResponse {
     }
 
     public boolean isKeepAlive() {
-        return HttpUtil.isKeepAlive(response);
-    }
-    public NettyHttpServletResponse setRequest(NettyHttpServletRequest request) {
-        this.request = request;
-        return this;
+        return httpServletRequest.isKeepAlive();
     }
 
     /**
@@ -153,11 +143,11 @@ public class NettyHttpServletResponse implements HttpServletResponse {
 
     @Override
     public String encodeURL(String url) {
-        if(!request.isRequestedSessionIdFromCookie()){
+        if (!httpServletRequest.isRequestedSessionIdFromCookie()) {
             //来自Cookie的Session ID,则客户端肯定支持Cookie，无需重写URL
             return url;
         }
-        return url + ";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=" + request.getRequestedSessionId();
+        return url + ";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=" + httpServletRequest.getRequestedSessionId();
     }
 
     @Override
@@ -208,7 +198,7 @@ public class NettyHttpServletResponse implements HttpServletResponse {
 
     @Override
     public void setHeader(String name, String value) {
-        if (name == null || name.length() == 0 || value == null) {
+        if (name == null || name.isEmpty() || value == null) {
             return;
         }
         if (isCommitted()) {
@@ -233,7 +223,7 @@ public class NettyHttpServletResponse implements HttpServletResponse {
 
     @Override
     public void addHeader(String name, String value) {
-        if (name == null || name.length() == 0 || value == null) {
+        if (name == null || name.isEmpty() || value == null) {
             return;
         }
         if (isCommitted()) {
@@ -247,7 +237,7 @@ public class NettyHttpServletResponse implements HttpServletResponse {
 
     @Override
     public void setIntHeader(String name, int value) {
-        if (name == null || name.length() == 0) {
+        if (name == null || name.isEmpty()) {
             return;
         }
         if (isCommitted()) {
@@ -258,7 +248,7 @@ public class NettyHttpServletResponse implements HttpServletResponse {
 
     @Override
     public void addIntHeader(String name, int value) {
-        if (name == null || name.length() == 0) {
+        if (name == null || name.isEmpty()) {
             return;
         }
         if (isCommitted()) {
@@ -331,14 +321,14 @@ public class NettyHttpServletResponse implements HttpServletResponse {
     //Writer和OutputStream不能同时使用
 
     @Override
-    public ServletOutputStream getOutputStream() throws IOException {
+    public ServletOutputStream getOutputStream() {
         checkState(!hasWriter(), "getWriter has already been called for this response");
         usingOutputStream = true;
         return outputStream;
     }
 
     @Override
-    public PrintWriter getWriter() throws IOException {
+    public PrintWriter getWriter() {
         checkState(!usingOutputStream, "getOutputStream has already been called for this response");
         if (!hasWriter()) {
             writer = new PrintWriter(outputStream);
@@ -370,7 +360,6 @@ public class NettyHttpServletResponse implements HttpServletResponse {
 
     @Override
     public void setBufferSize(int size) {
-        checkNotCommitted();
         outputStream.setBufferSize(size);
     }
 
@@ -380,24 +369,24 @@ public class NettyHttpServletResponse implements HttpServletResponse {
     }
 
     @Override
-    public void flushBuffer() throws IOException {
-        checkNotCommitted();
+    public void flushBuffer() {
         outputStream.flush();
     }
 
     @Override
     public void resetBuffer() {
-        checkNotCommitted();
         outputStream.resetBuffer();
     }
 
     @Override
     public boolean isCommitted() {
-        return committed;
+        return outputStream.isHasCommit();
     }
 
-    private void checkNotCommitted() {
-        checkState(!committed, "Cannot perform this operation after response has been committed");
+    private void checkNotCommitted() throws IOException {
+        if (outputStream.isHasCommit()) {
+            throw new IOException("Cannot perform this operation after response has been committed");
+        }
     }
 
     @Override

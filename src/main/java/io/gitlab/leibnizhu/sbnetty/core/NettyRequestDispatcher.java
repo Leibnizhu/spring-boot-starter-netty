@@ -37,7 +37,7 @@ public class NettyRequestDispatcher implements RequestDispatcher {
     }
 
     void dispatch(ServletRequest request, ServletResponse response) throws ServletException, IOException {
-        request.setAttribute(NettyHttpServletRequest.DISPATCHER_TYPE, DispatcherType.ASYNC);
+        request.setAttribute(NettyHttpServletRequest.DISPATCHER_TYPE, DispatcherType.REQUEST);
         filterChain.doFilter(request, response);
     }
 }

@@ -1,147 +1,174 @@
 package io.gitlab.leibnizhu.sbnetty.response;
 
+import com.google.common.base.Preconditions;
+import io.gitlab.leibnizhu.sbnetty.core.ClientAbortException;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.http.DefaultLastHttpContent;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpUtil;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.WriteListener;
 import java.io.IOException;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
-/**
- * 响应输出流
- */
 public class HttpResponseOutputStream extends ServletOutputStream {
-    private static final int DEFAULT_BUFFER_SIZE = 1024 * 8;
 
     private final ChannelHandlerContext ctx;
     private final NettyHttpServletResponse servletResponse;
-    private WriteListener writeListener; //监听器，暂时没处理
+    private WriteListener writeListener;
+
+    private final ByteToMessageDecoder.Cumulator cumulator = ByteToMessageDecoder.COMPOSITE_CUMULATOR;
+    private ByteBuf buf = Unpooled.EMPTY_BUFFER;
+    private static final int DEFAULT_BUFFER_SIZE = 1024 * 8;
+    private static final int MAX_BUFFER_SIZE = 1024 * 1024 * 4;
+    private volatile boolean closed;
+
+    private volatile boolean hasCommit = false;
+
+    public boolean isHasCommit() {
+        return hasCommit;
+    }
+
+    private Integer outerBufferSize;
+    private final ReentrantLock lock = new ReentrantLock();
+
     HttpResponseOutputStream(ChannelHandlerContext ctx, NettyHttpServletResponse servletResponse) {
         this.ctx = ctx;
         this.servletResponse = servletResponse;
-        this.buf = new byte[DEFAULT_BUFFER_SIZE];
     }
 
     @Override
     public boolean isReady() {
-        return true; // TODO implement
+        return ctx.channel().isWritable();
     }
 
     @Override
     public void setWriteListener(WriteListener writeListener) {
         checkNotNull(writeListener);
-        if(this.writeListener != null){
-            return; //只能设置一次
+        if (this.writeListener != null) {
+            throw new IllegalStateException("writeListener already set");
         }
         this.writeListener = writeListener;
-        // TODO ISE when called more than once
-        // TODO ISE when associated request is not async
+
+        // write is Possible in any time
+        ctx.executor().execute(() -> {
+            try {
+                writeListener.onWritePossible();
+            } catch (Exception e) {
+                writeListener.onError(e);
+            }
+        });
     }
 
-    private byte[] buf; //缓冲区
-    private int count; //缓冲区游标（记录写到哪里）
-    private int totalLength;//内容总长度
-    private boolean closed; //是否已经调用close()方法关闭输出流
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        totalLength += len;
-        if (len > count) {
-            flushBuffer();
-            ByteBuf content = ctx.alloc().buffer(len);
-            content.writeBytes(b, off, len);
-            writeContent(content, false);
-            return;
+        lock.lock();
+        try {
+            checkClose();
+            // 这个byte[]数组会被重复使用，所以这里需要复制新的空间
+            ByteBuf appendedBuffer = ctx.alloc().buffer(len);
+            appendedBuffer.writeBytes(b, off, len);
+
+            buf = cumulator.cumulate(ctx.alloc(), buf, appendedBuffer);
+            if (buf.readableBytes() >= getBufferSize()) {
+                flush();
+            }
+        } finally {
+            lock.unlock();
         }
-        writeBufferIfNeeded(len);
-        System.arraycopy(b, off, buf, count, len); //输入的b复制到缓存buf
-        count += len;
     }
+
 
     @Override
     public void write(int b) throws IOException {
-        writeBufferIfNeeded(1);
-        buf[count++] = (byte) b;
-        totalLength++;
+        lock.lock();
+        try {
+            checkClose();
+            buf.writeByte(b);
+        } finally {
+            lock.unlock();
+        }
+
     }
 
-    private void writeBufferIfNeeded(int len) throws IOException {
-        if (len > buf.length - count) { //buffer剩余空间不足则flush
-            flushBuffer();
-        }
-    }
 
     @Override
-    public void flush() throws IOException {
-        flushBuffer();
+    public void flush() {
+        performFlush(true);
     }
 
-    private void flushBuffer() {
-        flushBuffer(false);
-    }
-
-    private void flushBuffer(boolean lastContent) {
-        if (count > 0) {
-            ByteBuf content = ctx.alloc().buffer(count);
-            content.writeBytes(buf, 0, count);//buf写入ByteBuf
-            count = 0;//游标归位
-            writeContent(content, lastContent);
-        } else if (lastContent) { //如果是最后一次flush，即便内容为空也要执行ctx.write写入EMPTY_LAST_CONTENT
-            writeContent(Unpooled.EMPTY_BUFFER, true);
-        }
-    }
-
-    private void writeContent(ByteBuf content, boolean lastContent) {
-        boolean hasBody = content.readableBytes() > 0;
-        servletResponse.ensureResponseHeader(hasBody);
-        if (hasBody) {
-            assert content.refCnt() == 1;
-            ctx.write(content, ctx.voidPromise());
-        }
-        if (lastContent) {
-            ChannelFuture future = ctx.write(DefaultLastHttpContent.EMPTY_LAST_CONTENT);
-            if (!servletResponse.isKeepAlive()) {
-                future.addListener(ChannelFutureListener.CLOSE);//如果不是keep-alive，写完后关闭channel
+    private void performFlush(boolean flushNetty) {
+        lock.lock();
+        try {
+            hasCommit = true;
+            servletResponse.ensureResponseHeader(buf.readableBytes() > 0);
+            if (buf.readableBytes() == 0) {
+                return;
             }
-            servletResponse.commit();
+            if (flushNetty) {
+                ctx.writeAndFlush(buf);
+            } else {
+                ctx.write(buf);
+            }
+            buf = Unpooled.EMPTY_BUFFER;
+        } finally {
+            lock.unlock();
         }
     }
+
+    private void checkClose() throws IOException {
+        if (closed) {
+            throw new ClientAbortException("user reset");
+        }
+    }
+
 
     @Override
     public void close() throws IOException {
-        if (closed) {
-            return;
-        }
+        lock.lock();
         try {
-            flushBuffer(true);
-            ctx.flush();
+            if (closed) {
+                return;
+            }
+            closed = true;
+            performFlush(false);
+            ChannelFuture future = ctx.writeAndFlush(DefaultLastHttpContent.EMPTY_LAST_CONTENT);
+            if (!servletResponse.isKeepAlive()) {
+                future.addListener(ChannelFutureListener.CLOSE);//如果不是keep-alive，写完后关闭channel
+            }
         } finally {
-            buf = null;
+            buf = Unpooled.EMPTY_BUFFER;
+            lock.unlock();
         }
-        closed = true;
     }
 
     void resetBuffer() {
-        assert !servletResponse.isCommitted();
-        count = 0;
+        Preconditions.checkArgument(!hasCommit, "can not perform after commit");
+        buf.readerIndex(0);
+        buf.writerIndex(0);
     }
 
     int getBufferSize() {
-        return buf.length;
+        if (outerBufferSize != null) {
+            return outerBufferSize;
+        }
+        int choosedBufferSize = buf.nioBufferCount();
+        if (choosedBufferSize < DEFAULT_BUFFER_SIZE) {
+            choosedBufferSize = DEFAULT_BUFFER_SIZE;
+        } else if (choosedBufferSize > MAX_BUFFER_SIZE) {
+            choosedBufferSize = MAX_BUFFER_SIZE;
+        }
+        return choosedBufferSize;
     }
 
     void setBufferSize(int size) {
-        assert !servletResponse.isCommitted();
-        checkState(count == 0, "Response body content has been written");
-        buf = new byte[size];
+        outerBufferSize = size;
     }
 }
