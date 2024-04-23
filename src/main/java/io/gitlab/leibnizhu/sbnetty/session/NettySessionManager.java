@@ -25,7 +25,9 @@ public class NettySessionManager {
 
     public NettySessionManager(NettyContext servletContext){
         this.servletContext = servletContext;
-        new Thread(new checkInvalidSessions(), "Session-Check").start();
+        Thread thread = new Thread(new checkInvalidSessions(), "Session-Check");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     ServletContext getServletContext() {
