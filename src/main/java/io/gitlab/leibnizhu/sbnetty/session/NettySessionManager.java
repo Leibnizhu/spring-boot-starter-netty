@@ -20,7 +20,6 @@ public class NettySessionManager {
     private NettyContext servletContext;
     private Map<String, NettyHttpSession> sessions = new ConcurrentHashMap<>();
     static final int SESSION_LIFE_SECONDS = 60 * 30;
-    static final int SESSION_LIFE_MILLISECONDS = SESSION_LIFE_SECONDS * 1000;
     private static final int SESSION_LIFE_CHECK_INTER = 1000 * 60;
 
     public NettySessionManager(NettyContext servletContext){
@@ -62,12 +61,6 @@ public class NettySessionManager {
     private String createUniqueSessionId() {
         String prefix = String.valueOf(100000 + new Random().nextInt(899999));
         return new StringBuilder().append(System.currentTimeMillis()).reverse().append(prefix).toString();
-    }
-
-    public void setOldSession(NettyHttpSession session) {
-        if(session != null){
-            session.setNew(false);
-        }
     }
 
     /**

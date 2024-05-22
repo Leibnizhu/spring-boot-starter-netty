@@ -273,12 +273,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             if (null != curSession) {
                 this.isURLSession = true;
                 recoverySession(curSession);
-                return;
             }
-        }
-        //Cookie和请求参数中都没拿到Session，则创建一个
-        if (this.session == null) {
-            this.session = createtSession();
         }
     }
 

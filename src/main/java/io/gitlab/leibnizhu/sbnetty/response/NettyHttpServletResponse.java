@@ -15,6 +15,7 @@ import io.netty.util.concurrent.FastThreadLocal;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
@@ -100,7 +101,8 @@ public class NettyHttpServletResponse implements HttpServletResponse {
         headers.set(HttpHeaderNames.SERVER, servletContext.getServerInfo()); //服务器信息响应头
 
 
-        if (httpServletRequest.getSession().isNew()) {
+        HttpSession session = httpServletRequest.getSession(false);
+        if (session != null && session.isNew()) {
             String sessionCookieStr = NettyHttpSession.SESSION_COOKIE_NAME +
                     "=" + httpServletRequest.getRequestedSessionId() +
                     "; path=/; domain=" +
