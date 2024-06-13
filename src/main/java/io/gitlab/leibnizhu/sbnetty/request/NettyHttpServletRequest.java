@@ -1,25 +1,33 @@
 package io.gitlab.leibnizhu.sbnetty.request;
 
+import com.google.common.base.Splitter;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import io.gitlab.leibnizhu.sbnetty.core.NettyAsyncContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyContext;
 import io.gitlab.leibnizhu.sbnetty.core.NettyRequestDispatcher;
-import io.gitlab.leibnizhu.sbnetty.core.ServletContentHandler;
 import io.gitlab.leibnizhu.sbnetty.session.NettyHttpSession;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.cookie.ServerCookieDecoder;
+import io.netty.handler.codec.http.multipart.Attribute;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
+import io.netty.util.NetUtil;
 
 import javax.servlet.*;
-import javax.servlet.http.*;
 import javax.servlet.http.Cookie;
+import javax.servlet.http.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * @author Leibniz
@@ -31,28 +39,26 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     private final NettyContext servletContext;
     private final HttpRequest request;
     private final HttpRequestInputStream inputStream;
-
+    private final HttpPostRequestDecoder httpPostRequestDecoder;
     private boolean asyncSupported = true;
     private NettyAsyncContext asyncContext;
-    private HttpServletResponse servletResponse;
 
-    public NettyHttpServletRequest(ChannelHandlerContext ctx, ServletContentHandler handler, HttpRequest request, HttpServletResponse servletResponse) {
+    public NettyHttpServletRequest(ChannelHandlerContext ctx, NettyContext servletContext,
+                                   HttpRequest request, HttpPostRequestDecoder httpPostRequestDecoder,
+                                   HttpRequestInputStream requestInputStream) {
         this.ctx = ctx;
-        this.servletContext = handler.getServletContext();
+        this.servletContext = servletContext;
         this.request = request;
-        this.servletResponse = servletResponse;
-        this.inputStream = handler.getInputStream();
+        this.inputStream = requestInputStream;
+        this.httpPostRequestDecoder = httpPostRequestDecoder;
         this.attributes = new ConcurrentHashMap<>();
         this.headers = request.headers();
-
         parseSession();
     }
 
-    @SuppressWarnings("unused")
-    HttpRequest getNettyRequest() {
-        return request;
+    public boolean isKeepAlive() {
+        return HttpUtil.isKeepAlive(request);
     }
-
 
     /*====== Cookie 相关方法 开始 ======*/
     private Cookie[] cookies;
@@ -81,7 +87,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             return;
         }
         Set<io.netty.handler.codec.http.cookie.Cookie> nettyCookies = ServerCookieDecoder.LAX.decode(cookieOriginStr);
-        if (nettyCookies.size() == 0) {
+        if (nettyCookies.isEmpty()) {
             return;
         }
         this.cookies = new Cookie[nettyCookies.size()];
@@ -91,8 +97,8 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             io.netty.handler.codec.http.cookie.Cookie nettyCookie = itr.next();
             Cookie servletCookie = new Cookie(nettyCookie.name(), nettyCookie.value());
 //            servletCookie.setMaxAge(Ints.checkedCast(nettyCookie.maxAge()));
-            if(nettyCookie.domain() != null) servletCookie.setDomain(nettyCookie.domain());
-            if(nettyCookie.path() != null) servletCookie.setPath(nettyCookie.path());
+            if (nettyCookie.domain() != null) servletCookie.setDomain(nettyCookie.domain());
+            if (nettyCookie.path() != null) servletCookie.setPath(nettyCookie.path());
             servletCookie.setHttpOnly(nettyCookie.isHttpOnly());
             this.cookies[i++] = servletCookie;
         }
@@ -104,7 +110,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
 
     /*====== Header 相关方法 开始 ======*/
-    private HttpHeaders headers;
+    private final HttpHeaders headers;
 
     @Override
     public long getDateHeader(String name) {
@@ -153,11 +159,11 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     private String requestUri;
     private transient boolean isPathsParsed = false;
 
-    private void checkAndParsePaths(){
-        if(isPathsParsed){
+    private void checkAndParsePaths() {
+        if (isPathsParsed) {
             return;
         }
-        if(request.uri().startsWith(servletContext.getContextPath())) {
+        if (request.uri().startsWith(servletContext.getContextPath())) {
             String servletPath = request.uri().substring(servletContext.getContextPath().length());
             if (!servletPath.startsWith("/")) {
                 servletPath = "/" + servletPath;
@@ -219,7 +225,6 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     @Override
     public StringBuffer getRequestURL() {
         checkAndParsePaths();
-        // 目前这个版本不支持ssl，所以一定是http
         StringBuffer url = new StringBuffer();
         url.append("http:").append("//")
                 .append(request.headers().get(HttpHeaderNames.HOST))
@@ -232,7 +237,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     public String getRealPath(String path) {
         return null;
     }
-     /*====== 各种路径 相关方法 结束 ======*/
+    /*====== 各种路径 相关方法 结束 ======*/
 
 
     /*====== Session 相关方法 开始 ======*/
@@ -252,7 +257,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
         //从Cookie解析SessionID
         sessionId = getSessionIdFromCookie();
-        if(sessionId != null){
+        if (sessionId != null) {
             curSession = servletContext.getSessionManager().getSession(sessionId);
             if (null != curSession) {
                 this.isCookieSession = true;
@@ -265,15 +270,10 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             // 从请求路径解析SessionID
             sessionId = getSessionIdFromUrl();
             curSession = servletContext.getSessionManager().getSession(sessionId);
-            if(null != curSession){
+            if (null != curSession) {
                 this.isURLSession = true;
                 recoverySession(curSession);
-                return;
             }
-        }
-        //Cookie和请求参数中都没拿到Session，则创建一个
-        if (this.session == null) {
-            this.session = createtSession();
         }
     }
 
@@ -283,7 +283,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     private String getSessionIdFromUrl() {
         StringBuilder u = new StringBuilder(request.uri());
         int sessionStart = u.toString().indexOf(";" + NettyHttpSession.SESSION_REQUEST_PARAMETER_NAME + "=");
-        if(sessionStart == -1) {
+        if (sessionStart == -1) {
             return null;
         }
         int sessionEnd = u.toString().indexOf(';', sessionStart + 1);
@@ -299,7 +299,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
      */
     private String getSessionIdFromCookie() {
         Cookie[] cookies = getCookies();
-        if(cookies == null){
+        if (cookies == null) {
             return null;
         }
         for (Cookie cookie : cookies) {
@@ -312,6 +312,7 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     /**
      * 恢复旧Session
+     *
      * @param curSession 要恢复的Session对象
      */
     private void recoverySession(NettyHttpSession curSession) {
@@ -384,81 +385,63 @@ public class NettyHttpServletRequest implements HttpServletRequest {
     /*====== Request Parameters 相关方法 开始 ======*/
 
     private transient boolean isParameterParsed = false; //请求参数是否已经解析
+    private final Map<String, String[]> paramMap = new HashMap<>(); //存储请求参数
 
-    private Map<String, String[]> paramMap = new HashMap<>(); //存储请求参数
 
-    /**
-     * 解析请求参数
-     */
-    private void parseParameter() {
+    private void fillRequestParams() {
         if (isParameterParsed) {
             return;
         }
-
-        stringToInsertMap(request.uri());
-        //处理POST请求的请求参数
-        if (request.method().equals(HttpMethod.POST) && inputStream.isReady()) {
-            try {
-                StringBuilder sb = new StringBuilder();
-                String line;
-                BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
-                while ((line = br.readLine()) != null) sb.append(line);
-                String body = sb.toString();
-                stringToInsertMap("?" + body);
-                inputStream.closeCurrentHttpContent(); //关闭当前http请求体,这样下次请求的时候,才能正常处理,不被误判为流已结束
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        this.isParameterParsed = true;
-    }
-
-    private void stringToInsertMap(String source) {
-        QueryStringDecoder queryStringDecoder = new QueryStringDecoder(source);
+        Map<String, List<String>> multiMap = new HashMap<>();
+        QueryStringDecoder queryStringDecoder = new QueryStringDecoder(request.uri(), characterEncodingModel);
         Map<String, List<String>> params = queryStringDecoder.parameters();
         for (Map.Entry<String, List<String>> entry : params.entrySet()) {
             List<String> valueList = entry.getValue();
-            String[] valueArray = new String[valueList.size()];
-            paramMap.put(entry.getKey(), valueList.toArray(valueArray));
+            multiMap.put(entry.getKey(), valueList);
         }
-    }
-
-    /**
-     * 检查请求参数是否已经解析。
-     * 如果还没有则解析之。
-     */
-    private void checkParameterParsed() {
-        if (!isParameterParsed) {
-            parseParameter();
+        if (httpPostRequestDecoder != null) {
+            for (InterfaceHttpData bodyHttpData : httpPostRequestDecoder.getBodyHttpDatas()) {
+                if (bodyHttpData instanceof Attribute) {
+                    Attribute attribute = (Attribute) bodyHttpData;
+                    try {
+                        String value = attribute.getValue();
+                        String name = attribute.getName();
+                        multiMap.computeIfAbsent(name, k -> new ArrayList<>()).add(value);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
         }
+        multiMap.forEach((s, strings) -> paramMap.put(s, strings.toArray(new String[0])));
+        this.isParameterParsed = true;
     }
 
     @Override
     public String getParameter(String name) {
-        checkParameterParsed();
+        fillRequestParams();
         String[] values = paramMap.get(name);
-        if (values == null || values.length == 0) {
-            return null;
+        if (values != null && values.length > 0) {
+            return values[0];
         }
-        return values[0];
+        return null;
     }
 
     @Override
     public Enumeration<String> getParameterNames() {
-        checkParameterParsed();
+        fillRequestParams();
         return Collections.enumeration(paramMap.keySet());
     }
 
     @Override
     public String[] getParameterValues(String name) {
-        checkParameterParsed();
+        fillRequestParams();
         return paramMap.get(name);
     }
 
     @Override
     public Map<String, String[]> getParameterMap() {
-        checkParameterParsed();
+        fillRequestParams();
         return paramMap;
     }
 
@@ -476,35 +459,49 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         return request.protocolVersion().protocolName();
     }
 
-    private InetSocketAddress socketAddress; //请求的服务地址
-    private transient boolean isServerParsed = false; //请求服务地址是否已经解析过
+    private static final Splitter splitter = Splitter.on(':').omitEmptyStrings().trimResults();
 
-    private void checkAndParseServer() {
-        if (isServerParsed) {
-            return;
+    private static class HostAndPort {
+        private String host;
+        private int port;
+
+        static HostAndPort of(String host, int port) {
+            HostAndPort hostAndPort = new HostAndPort();
+            hostAndPort.host = host;
+            hostAndPort.port = port;
+            return hostAndPort;
         }
-        String hostHeader = headers.get("Host");
-        if (hostHeader != null) {
-            String[] parsed = hostHeader.split(":");
-            if (parsed.length > 1) {
-                socketAddress = new InetSocketAddress(parsed[0], Integer.parseInt(parsed[1]));
-            } else {
-                socketAddress = new InetSocketAddress(parsed[0], 80);
-            }
+
+        static HostAndPort of(String host) {
+            return of(host, 80);
         }
-        isServerParsed = true;
     }
+
+    private final java.util.function.Supplier<HostAndPort> hostAndPort =
+            Suppliers.memoize(new Supplier<HostAndPort>() {
+                @Override
+                public HostAndPort get() {
+                    String host = request.headers().get(HttpHeaderNames.HOST);
+                    if (host == null) {
+                        InetSocketAddress addr = (InetSocketAddress) ctx.channel().localAddress();
+                        return HostAndPort.of(NetUtil.getHostname(addr), addr.getPort());
+                    }
+                    List<String> strings = splitter.splitToList(host);
+                    return strings.size() == 1 ?
+                            HostAndPort.of(host) :
+                            HostAndPort.of(strings.get(0), Integer.parseInt(strings.get(1)));
+                }
+            });
+
 
     @Override
     public String getServerName() {
-        checkAndParseServer();
-        return Optional.ofNullable(socketAddress).map(InetSocketAddress::getHostName).orElse("");
+        return hostAndPort.get().host;
     }
 
     @Override
     public int getServerPort() {
-        checkAndParseServer();
-        return Optional.ofNullable(socketAddress).map(InetSocketAddress::getPort).orElse(-1);
+        return hostAndPort.get().port;
     }
 
     @Override
@@ -558,7 +555,8 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         attributes.put(name, o);
     }
 
-    @Override    public void removeAttribute(String name) {
+    @Override
+    public void removeAttribute(String name) {
         attributes.remove(name);
     }
 
@@ -606,22 +604,30 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         return asyncContext;
     }
 
-     /*====== 异步 相关方法 结束 ======*/
+    /*====== 异步 相关方法 结束 ======*/
 
     /*====== multipart/form-data 相关方法 开始 ======*/
     @Override
     public Collection<Part> getParts() throws IOException, IllegalStateException, ServletException {
-        //TODO
-        return null;
+        if (httpPostRequestDecoder == null || !httpPostRequestDecoder.isMultipart()) {
+            return null;
+        }
+        return httpPostRequestDecoder.getBodyHttpDatas().stream()
+                .map(NettyPart::of).filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     @Override
     public Part getPart(String name) throws IOException, IllegalStateException, ServletException {
-        //TODO
-        return null;
+        if (httpPostRequestDecoder == null || !httpPostRequestDecoder.isMultipart()) {
+            return null;
+        }
+        return Optional.ofNullable(httpPostRequestDecoder.getBodyHttpData(name))
+                .map(NettyPart::of)
+                .orElse(null);
     }
 
-     /*====== multipart/form-data 相关方法 结束 ======*/
+    /*====== multipart/form-data 相关方法 结束 ======*/
 
     @Override
     public boolean isSecure() {
@@ -633,12 +639,9 @@ public class NettyHttpServletRequest implements HttpServletRequest {
         return servletContext;
     }
 
-    public ServletResponse getServletResponse() {
-        return servletResponse;
-    }
 
     @Override
-    public ServletInputStream getInputStream() throws IOException {
+    public ServletInputStream getInputStream() {
         return inputStream;
     }
 
@@ -649,26 +652,31 @@ public class NettyHttpServletRequest implements HttpServletRequest {
 
     @Override
     public int getContentLength() {
-        return inputStream.getCurrentLength();
+        return request.headers().getInt(HttpHeaderNames.CONTENT_LENGTH, -1);
     }
 
     @Override
     public long getContentLengthLong() {
-        return (long) getContentLength();
+        return getContentLength();
     }
 
     private String characterEncoding;
+
+    private Charset characterEncodingModel = StandardCharsets.UTF_8;
 
     @Override
     public String getCharacterEncoding() {
         if (characterEncoding == null) {
             characterEncoding = parseCharacterEncoding();
         }
+
+        characterEncodingModel = Charset.forName(characterEncoding);
+
         return characterEncoding;
     }
 
     @Override
-    public void setCharacterEncoding(String env) throws UnsupportedEncodingException {
+    public void setCharacterEncoding(String env) {
         characterEncoding = env;
     }
 
@@ -747,7 +755,6 @@ public class NettyHttpServletRequest implements HttpServletRequest {
             relative = requestPath + path;
         }
         return servletContext.getRequestDispatcher(relative);
-
     }
 
     @Override

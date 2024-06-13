@@ -74,7 +74,7 @@ public class NettyContainer implements EmbeddedServletContainer {
                 ChannelPipeline p = ch.pipeline();
                 p.addLast("codec", new HttpServerCodec(4096, 8192, 8192, false)); //HTTP编码解码Handler
                 p.addLast("chunked", new ChunkedWriteHandler());
-                p.addLast("servletInput", new ServletContentHandler(servletContext)); //处理请求，读入数据，生成Request和Response对象
+                p.addLast("aggregator", new RequestSessionAggregator(servletContext)); //聚合http请求，等待http请求完全解析完成后，在交给工作线程
                 p.addLast(checkNotNull(servletExecutor), "filterChain", new RequestDispatcherHandler(servletContext)); //获取请求分发器，让对应的Servlet处理请求，同时处理404情况
             }
         });
@@ -91,6 +91,7 @@ public class NettyContainer implements EmbeddedServletContainer {
 
     /**
      * 优雅地关闭各种资源
+     *
      * @throws EmbeddedServletContainerException
      */
     @Override

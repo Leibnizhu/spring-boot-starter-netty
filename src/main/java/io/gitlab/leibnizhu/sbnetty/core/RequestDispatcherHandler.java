@@ -1,13 +1,10 @@
 package io.gitlab.leibnizhu.sbnetty.core;
 
-import io.gitlab.leibnizhu.sbnetty.request.NettyHttpServletRequest;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
-import javax.servlet.http.HttpServletResponse;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -16,7 +13,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * 找到则调用FilterChain进行业务逻辑，最后关闭输出流
  */
 @ChannelHandler.Sharable
-class RequestDispatcherHandler extends SimpleChannelInboundHandler<NettyHttpServletRequest> {
+class RequestDispatcherHandler extends SimpleChannelInboundHandler<RequestSession> {
     private final Log logger = LogFactory.getLog(getClass());
     private final NettyContext context;
 
@@ -30,18 +27,18 @@ class RequestDispatcherHandler extends SimpleChannelInboundHandler<NettyHttpServ
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, NettyHttpServletRequest request) throws Exception {
-        HttpServletResponse servletResponse = (HttpServletResponse) request.getServletResponse();
+    protected void channelRead0(ChannelHandlerContext ctx, RequestSession requestSession) throws Exception {
+        String requestURI = requestSession.getServletRequest().getRequestURI();
         try {
-            NettyRequestDispatcher dispatcher = (NettyRequestDispatcher) context.getRequestDispatcher(request.getRequestURI());
+            NettyRequestDispatcher dispatcher = (NettyRequestDispatcher) context.getRequestDispatcher(requestURI);
             if (dispatcher == null) {
-                servletResponse.sendError(404);
+                requestSession.getServletResponse().sendError(404);
                 return;
             }
-            dispatcher.dispatch(request, servletResponse);
+            dispatcher.dispatch(requestSession.getServletRequest(), requestSession.getServletResponse());
         } finally {
-            if (!request.isAsyncStarted()) {
-                servletResponse.getOutputStream().close();
+            if (!requestSession.getServletRequest().isAsyncStarted()) {
+                requestSession.destroy();
             }
         }
     }
