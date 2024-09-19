@@ -7,7 +7,7 @@
     <groupId>io.gitlab.leibnizhu</groupId>
     <artifactId>spring-boot-starter-netty</artifactId>
     <packaging>jar</packaging>
-    <version>1.1-RELEASE</version>
+    <version>1.2</version>
 
     <name>spring-boot-starter-netty</name>
 
@@ -42,8 +42,8 @@
         <compiler-plugin.version>3.6.2</compiler-plugin.version>
         <war-plugin.version>3.1.0</war-plugin.version>
         <clean-plugin.version>3.0.0</clean-plugin.version>
-        <resources-plugin.version>3.0.2</resources-plugin.version>
-        <surefire-plugin.version>2.20</surefire-plugin.version>
+        <resources-plugin.version>3.3.1</resources-plugin.version>
+        <surefire-plugin.version>3.5.0</surefire-plugin.version>
         <jar-plugin.version>3.0.2</jar-plugin.version>
         <source-plugin.version>3.0.1</source-plugin.version>
         <javadoc-plugin.version>2.10.4</javadoc-plugin.version>
@@ -53,7 +53,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.2.10.RELEASE</version>
+        <version>2.7.18</version>
         <relativePath/>
     </parent>
 
@@ -98,6 +98,11 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>32.0.0-jre</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>

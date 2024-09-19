@@ -12,7 +12,6 @@ import io.netty.util.ReferenceCountUtil;
 
 import javax.servlet.ReadListener;
 import javax.servlet.ServletInputStream;
-import javax.validation.constraints.NotNull;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -102,7 +101,7 @@ public class HttpRequestInputStream extends ServletInputStream {
     }
 
     @Override
-    public int read(@NotNull byte[] b, int off, int len) throws IOException {
+    public int read(byte[] b, int off, int len) throws IOException {
         if (isFinished()) {
             return -1;
         }

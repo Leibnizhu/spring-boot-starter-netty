@@ -54,16 +54,14 @@ public class NettyContainer implements WebServer {
             bossGroup = new EpollEventLoopGroup(1);
             workerGroup = new EpollEventLoopGroup();//不带参数，线程数传入0,实际解析为 Math.max(1, SystemPropertyUtil.getInt("io.netty.eventLoopThreads", Runtime.getRuntime().availableProcessors() * 2));
             sb.channel(EpollServerSocketChannel.class)
-                    .group(bossGroup, workerGroup)
-                    .option(EpollChannelOption.TCP_CORK, true);
+                    .group(bossGroup, workerGroup);
         } else {
             bossGroup = new NioEventLoopGroup(1);
             workerGroup = new NioEventLoopGroup();
             sb.channel(NioServerSocketChannel.class)
                     .group(bossGroup, workerGroup);
         }
-        sb.option(ChannelOption.TCP_NODELAY, true)
-                .option(ChannelOption.SO_REUSEADDR, true)
+        sb.option(ChannelOption.SO_REUSEADDR, true)
                 .option(ChannelOption.SO_BACKLOG, 100);
         log.info("Bootstrap configuration: " + sb.toString());
 

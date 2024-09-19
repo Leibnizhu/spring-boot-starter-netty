@@ -146,7 +146,6 @@ public class NettyHttpSession implements HttpSession, Serializable {
 
     /**
      * 是否过期
-     * @return
      */
     public boolean expire(){
         return System.currentTimeMillis() - creationTime >= interval * 1000;

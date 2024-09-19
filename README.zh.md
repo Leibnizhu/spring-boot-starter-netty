@@ -1,11 +1,16 @@
 # spring-boot-starter-netty
 [[English]](https://github.com/Leibnizhu/spring-boot-starter-netty/blob/master/README.md) [[中文]](https://github.com/Leibnizhu/spring-boot-starter-netty/blob/master/README.zh.md)  
+
 ## 简介
-一个基于Netty(4.1.12.Final)实现的Spring Boot内置Servlet容器。  
-本项目已经发布到Maven中央仓库，参见[The Central Repository](http://search.maven.org/#artifactdetails%7Cio.gitlab.leibnizhu%7Cspring-boot-starter-netty%7C1.0%7Cjar)。  
+*   一个基于Netty实现的Spring Boot内置Servlet容器。
+*   仅支持 Netty 4.1.41.Final 及以上版本，可以在项目pom.xml文件中指定使用的版本号。
 
+## 构建
+1. 获取工程并安装到本地：
+    ```shell
+    $ mvn clean install
+    ```
 
-## Maven依赖
 1. 在你的Spring-Boot项目中加入以下依赖：  
 ```xml
 <dependencies>
@@ -24,28 +29,16 @@
     <dependency>
         <groupId>io.gitlab.leibnizhu</groupId>
         <artifactId>spring-boot-starter-netty</artifactId>
-        <version>1.1-RELEASE</version>
+        <version>1.2</version>
+    </dependency>
+    <!-- 指定项目使用的Netty版本。需要注意兼容其他基于Netty的依赖 -->
+    <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-all</artifactId>
+        <version>4.1.113.Final</version>
     </dependency>
 </dependencies>
 ```
-2. 给Spring-Boot应用的入口类的`@SpringBootApplication`注解增加`scanBasePackages`属性，如下：  
-```java
-@SpringBootApplication(scanBasePackages = {"io.gitlab.leibnizhu", "your.package.name"})
-@EnableScheduling
-public class AwpApplication extends SpringBootServletInitializer {
-    public AwpApplication() {
-    }
-
-    protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-        return application.sources(new Class[]{AwpApplication.class});
-    }
-
-    public static void main(String[] args) {
-        SpringApplication.run(AwpApplication.class, args);
-    }
-}
-```
-3. 启动Spring-Boot应用。
 
 ## 代码设计分析的博文
 陆续更新中……  

@@ -163,7 +163,7 @@ public class NettyContext implements ServletContext {
             try {
                 url.openStream();
             } catch (IOException e1) {
-                log.error("Throwing exception when getting InputStream of " + path + " in /static", e1);
+                log.warn("Resource not exist: " + path);
                 url = null;
             }
         } catch (Throwable t) {
@@ -176,7 +176,9 @@ public class NettyContext implements ServletContext {
     @Override
     public InputStream getResourceAsStream(String path) {
         try {
-            return getResource(path).openStream();
+            URL url = getResource(path);
+            if (url == null) return null;
+            return url.openStream();
         } catch (IOException e) {
             log.error(e.getMessage(), e);
             return null;
@@ -249,7 +251,9 @@ public class NettyContext implements ServletContext {
         if (!path.startsWith("/"))
             return null;
         try {
-            File f = new File(getResource(path).toURI());
+            URL url = getResource(path);
+            if (url == null) return null;
+            File f = new File(url.toURI());
             return f.getAbsolutePath();
         } catch (Throwable t) {
             log.error("Throwing exception when getting real path of " + path, t);
