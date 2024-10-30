@@ -14,8 +14,8 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.boot.context.embedded.EmbeddedServletContainer;
-import org.springframework.boot.context.embedded.EmbeddedServletContainerException;
+import org.springframework.boot.web.server.WebServer;
+import org.springframework.boot.web.server.WebServerException;
 
 import java.net.InetSocketAddress;
 
@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * @author Leibniz
  */
-public class NettyContainer implements EmbeddedServletContainer {
+public class NettyContainer implements WebServer {
     private final Log log = LogFactory.getLog(getClass());
 
     private final InetSocketAddress address; //监听端口地址
@@ -45,7 +45,7 @@ public class NettyContainer implements EmbeddedServletContainer {
     }
 
     @Override
-    public void start() throws EmbeddedServletContainerException {
+    public void start() throws WebServerException {
         servletContext.setInitialised(false);
 
         ServerBootstrap sb = new ServerBootstrap();
@@ -54,16 +54,14 @@ public class NettyContainer implements EmbeddedServletContainer {
             bossGroup = new EpollEventLoopGroup(1);
             workerGroup = new EpollEventLoopGroup();//不带参数，线程数传入0,实际解析为 Math.max(1, SystemPropertyUtil.getInt("io.netty.eventLoopThreads", Runtime.getRuntime().availableProcessors() * 2));
             sb.channel(EpollServerSocketChannel.class)
-                    .group(bossGroup, workerGroup)
-                    .option(EpollChannelOption.TCP_CORK, true);
+                    .group(bossGroup, workerGroup);
         } else {
             bossGroup = new NioEventLoopGroup(1);
             workerGroup = new NioEventLoopGroup();
             sb.channel(NioServerSocketChannel.class)
                     .group(bossGroup, workerGroup);
         }
-        sb.option(ChannelOption.TCP_NODELAY, true)
-                .option(ChannelOption.SO_REUSEADDR, true)
+        sb.option(ChannelOption.SO_REUSEADDR, true)
                 .option(ChannelOption.SO_BACKLOG, 100);
         log.info("Bootstrap configuration: " + sb.toString());
 
@@ -84,7 +82,7 @@ public class NettyContainer implements EmbeddedServletContainer {
         ChannelFuture future = sb.bind(address).awaitUninterruptibly();
         Throwable cause = future.cause();
         if (null != cause) {
-            throw new EmbeddedServletContainerException("Could not start Netty server", cause);
+            throw new WebServerException("Could not start Netty server", cause);
         }
         log.info(servletContext.getServerInfo() + " started on port: " + getPort());
     }
@@ -95,7 +93,7 @@ public class NettyContainer implements EmbeddedServletContainer {
      * @throws EmbeddedServletContainerException
      */
     @Override
-    public void stop() throws EmbeddedServletContainerException {
+    public void stop() throws WebServerException {
         log.info("Embedded Netty Servlet Container(by Leibniz.Hu) is now shuting down.");
         try {
             if (null != bossGroup) {
@@ -108,7 +106,7 @@ public class NettyContainer implements EmbeddedServletContainer {
                 servletExecutor.shutdownGracefully().await();
             }
         } catch (InterruptedException e) {
-            throw new EmbeddedServletContainerException("Container stop interrupted", e);
+            throw new WebServerException("Container stop interrupted", e);
         }
     }
 

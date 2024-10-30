@@ -31,7 +31,6 @@ public class RequestUrlPatternMapper {
      * @param urlPattern  urlPattern
      * @param servlet     servlet对象
      * @param servletName servletName
-     * @author Leibniz
      */
     public void addServlet(String urlPattern, Servlet servlet, String servletName) throws ServletException {
         if (urlPattern.endsWith("/*")) {
